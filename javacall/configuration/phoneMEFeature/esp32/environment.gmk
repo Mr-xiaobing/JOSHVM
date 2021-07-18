@@ -115,6 +115,7 @@ UTILITIES =                 \
 SPECIFIC_DEFINITIONS += -I$(BOARD_EXT_DIR)/joshvm/build/include \
 -I$(PLATFORM_DIR)/components/esp32/include \
 -I$(PLATFORM_DIR)/components/freertos/include \
+-I$(PLATFORM_DIR)/components/freertos/port/xtensa/include \
 -I$(PLATFORM_DIR)/components/log/include \
 -I$(PLATFORM_DIR)/components/driver/include \
 -I$(PLATFORM_DIR)/components/soc/include \
@@ -140,7 +141,16 @@ SPECIFIC_DEFINITIONS += -I$(BOARD_EXT_DIR)/joshvm/build/include \
 -I$(PLATFORM_DIR)/components/esp_event/include \
 -I$(PLATFORM_DIR)/components/esp_ringbuf/include \
 -I$(PLATFORM_DIR)/components/esp_netif/include \
--I$(PLATFORM_DIR)/components/newlib/include
+-I$(PLATFORM_DIR)/components/newlib/include \
+-I$(PLATFORM_DIR)/components/esp_timer/include \
+-I$(PLATFORM_DIR)/components/esp_system/include \
+-I$(PLATFORM_DIR)/components/esp_hw_support/include \
+-I$(PLATFORM_DIR)/components/hal/include \
+-I$(PLATFORM_DIR)/components/hal/esp32/include \
+-I$(PLATFORM_DIR)/components/esp_eth/include \
+-I$(PLATFORM_DIR)/components/bt/include/esp32/include \
+-I$(PLATFORM_DIR)/components/bt/host/bluedroid/api/include/api \
+-I$(PLATFORM_DIR)/components/mbedtls/mbedtls/include 
 
 SPECIFIC_DEFINITIONS += -O0 -ffunction-sections -fdata-sections -fstrict-volatile-bitfields -mlongcalls -nostdlib -Wextra -Wno-unused-parameter -Wno-sign-compare -fno-exceptions -mfix-esp32-psram-cache-issue -fno-strict-aliasing -fno-strict-overflow
 

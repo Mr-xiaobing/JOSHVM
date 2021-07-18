@@ -26,7 +26,11 @@
 
 #include "incls/_precompiled.incl"
 #include "incls/_Natives.cpp.incl"
-
+#if ENABLE_PCSL
+#include <javacall_blufi.h>
+#include <javacall_logging.h>
+#include <pcsl_memory.h>
+#endif
 // Special VM natives
 
 #if ENABLE_DYNAMIC_NATIVE_METHODS || ENABLE_ROM_GENERATOR
@@ -1350,248 +1354,290 @@ ReturnOop Java_com_sun_cldc_io_ResourceInputStream_open(JVM_SINGLE_ARG_TRAPS) {
     if (Universe::resource_names()->obj_at(i) == c_filename) {
       resource_data = Universe::resource_data()->obj_at(i);
       int resource_size = Universe::resource_size()->int_at(i);
-      int flags = resource_size < 0 ? LAST_BLOCK : INCREMENTAL_INFLATE;
-      Inflater::Raw inflater = Inflater::allocate(NULL, 0, resource_size, -1,
-                                                  0, flags JVM_CHECK_0);
-      if (resource_size < 0) { // uncompressed resource
-        resource_size = resource_data().length();
-        inflater().set_out_buffer(&resource_data);
-        inflater().set_out_offset(resource_size);
-        inflater().set_file_size(resource_size);
-        inflater().set_bytes_remain(resource_size);
-      } else {                 // inflated resource
-        inflater().set_in_buffer(&resource_data);
-      }
-      return inflater;
-    }
-  }
+	      int flags = resource_size < 0 ? LAST_BLOCK : INCREMENTAL_INFLATE;
+	      Inflater::Raw inflater = Inflater::allocate(NULL, 0, resource_size, -1,
+							  0, flags JVM_CHECK_0);
+	      if (resource_size < 0) { // uncompressed resource
+		resource_size = resource_data().length();
+		inflater().set_out_buffer(&resource_data);
+		inflater().set_out_offset(resource_size);
+		inflater().set_file_size(resource_size);
+		inflater().set_bytes_remain(resource_size);
+	      } else {                 // inflated resource
+		inflater().set_in_buffer(&resource_data);
+	      }
+	      return inflater;
+	    }
+	  }
 
-  // Open resource from a file
-  return ClassPathAccess::open_entry(&c_filename, false
-                                     JVM_NO_CHECK_AT_BOTTOM_0);
-}
+	  // Open resource from a file
+	  return ClassPathAccess::open_entry(&c_filename, false
+					     JVM_NO_CHECK_AT_BOTTOM_0);
+	}
 
-// static native int bytesRemain(Object fileDecoder);
-int Java_com_sun_cldc_io_ResourceInputStream_bytesRemain() {
-  FileDecoder::Raw fd = GET_PARAMETER_AS_OOP(1);
-  return fd().bytes_remain();
-}
+	// static native int bytesRemain(Object fileDecoder);
+	int Java_com_sun_cldc_io_ResourceInputStream_bytesRemain() {
+	  FileDecoder::Raw fd = GET_PARAMETER_AS_OOP(1);
+	  return fd().bytes_remain();
+	}
 
-// static native int readByte(Object fileDecoder);
-int Java_com_sun_cldc_io_ResourceInputStream_readByte(JVM_SINGLE_ARG_TRAPS) {
-  UsingFastOops fast_oops;
-  unsigned char result;
-  ArrayPointer destination(&result);
-  FileDecoder::Fast fd = GET_PARAMETER_AS_OOP(1);
-  if (fd().bytes_remain() <= 0) {
-    return -1;
-  }
-  fd().get_bytes(&destination, 1 JVM_CHECK_0);
-  return result;
-}
+	// static native int readByte(Object fileDecoder);
+	int Java_com_sun_cldc_io_ResourceInputStream_readByte(JVM_SINGLE_ARG_TRAPS) {
+	  UsingFastOops fast_oops;
+	  unsigned char result;
+	  ArrayPointer destination(&result);
+	  FileDecoder::Fast fd = GET_PARAMETER_AS_OOP(1);
+	  if (fd().bytes_remain() <= 0) {
+	    return -1;
+	  }
+	  fd().get_bytes(&destination, 1 JVM_CHECK_0);
+	  return result;
+	}
 
-// static native int readBytes(Object fileDecoder, byte b[], int off, int len);
-int Java_com_sun_cldc_io_ResourceInputStream_readBytes(JVM_SINGLE_ARG_TRAPS) {
-  UsingFastOops fast_oops;
-  FileDecoder::Fast fd = GET_PARAMETER_AS_OOP(1);
-  TypeArray::Fast b = GET_PARAMETER_AS_OOP(2);
-  int len = KNI_GetParameterAsInt(4);
-  ArrayPointer destination(&b, KNI_GetParameterAsInt(3));
-  if (fd().bytes_remain() <= 0) {
-    return -1;
-  }
-  return fd().get_bytes(&destination, len JVM_NO_CHECK_AT_BOTTOM_0);
-}
+	// static native int readBytes(Object fileDecoder, byte b[], int off, int len);
+	int Java_com_sun_cldc_io_ResourceInputStream_readBytes(JVM_SINGLE_ARG_TRAPS) {
+	  UsingFastOops fast_oops;
+	  FileDecoder::Fast fd = GET_PARAMETER_AS_OOP(1);
+	  TypeArray::Fast b = GET_PARAMETER_AS_OOP(2);
+	  int len = KNI_GetParameterAsInt(4);
+	  ArrayPointer destination(&b, KNI_GetParameterAsInt(3));
+	  if (fd().bytes_remain() <= 0) {
+	    return -1;
+	  }
+	  return fd().get_bytes(&destination, len JVM_NO_CHECK_AT_BOTTOM_0);
+	}
 
-// static native Object clone(Object source);
-ReturnOop Java_com_sun_cldc_io_ResourceInputStream_clone(JVM_SINGLE_ARG_TRAPS) {
-  return ObjectHeap::clone(GET_PARAMETER_AS_OOP(1) JVM_NO_CHECK_AT_BOTTOM);
-}
+	// static native Object clone(Object source);
+	ReturnOop Java_com_sun_cldc_io_ResourceInputStream_clone(JVM_SINGLE_ARG_TRAPS) {
+	  return ObjectHeap::clone(GET_PARAMETER_AS_OOP(1) JVM_NO_CHECK_AT_BOTTOM);
+	}
 
-#if ENABLE_CLDC_11
+	#if ENABLE_CLDC_11
 
-// native void initializeWeakReference(Object referent);
-void
-Java_java_lang_ref_WeakReference_initializeWeakReference(JVM_SINGLE_ARG_TRAPS)
-{
-  UsingFastOops fast_oops;
-  WeakReference::Fast thisObj = GET_PARAMETER_AS_OOP(0);
-  Oop::Fast referent = GET_PARAMETER_AS_OOP(1);
+	// native void initializeWeakReference(Object referent);
+	void
+	Java_java_lang_ref_WeakReference_initializeWeakReference(JVM_SINGLE_ARG_TRAPS)
+	{
+	  UsingFastOops fast_oops;
+	  WeakReference::Fast thisObj = GET_PARAMETER_AS_OOP(0);
+	  Oop::Fast referent = GET_PARAMETER_AS_OOP(1);
 
-  thisObj().set_referent_index(-1); // in case of failure, or if referent==NULL
+	  thisObj().set_referent_index(-1); // in case of failure, or if referent==NULL
 
-  if (referent.not_null()) {
-    const ObjectHeap::ReferenceType type = ObjectHeap::WEAK;
-    const int refIndex = ObjectHeap::register_global_ref_object(&referent,
-      type JVM_MUST_SUCCEED);
-    if( refIndex < 0 ) {
-      Throw::out_of_memory_error(JVM_SINGLE_ARG_THROW);
-    }
-    thisObj().set_referent_index(refIndex);
-  }
-}
+	  if (referent.not_null()) {
+	    const ObjectHeap::ReferenceType type = ObjectHeap::WEAK;
+	    const int refIndex = ObjectHeap::register_global_ref_object(&referent,
+	      type JVM_MUST_SUCCEED);
+	    if( refIndex < 0 ) {
+	      Throw::out_of_memory_error(JVM_SINGLE_ARG_THROW);
+	    }
+	    thisObj().set_referent_index(refIndex);
+	  }
+	}
 
-// native Object get();
-ReturnOop Java_java_lang_ref_WeakReference_get() {
-  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
-  jint refIndex = thisObj().referent_index();
-  if (refIndex < 0) {
-    return NULL;
-  } else {
-    return ObjectHeap::get_global_ref_object(refIndex);
-  }
-}
+	// native Object get();
+	ReturnOop Java_java_lang_ref_WeakReference_get() {
+	  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
+	  jint refIndex = thisObj().referent_index();
+	  if (refIndex < 0) {
+	    return NULL;
+	  } else {
+	    return ObjectHeap::get_global_ref_object(refIndex);
+	  }
+	}
 
-// native void clear();
-void Java_java_lang_ref_WeakReference_clear() {
-  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
-  jint refIndex = thisObj().referent_index();
-  if (refIndex >= 0) {
-    ObjectHeap::unregister_global_ref_object(refIndex);
-    thisObj().set_referent_index(-1);
-  }
-}
+	// native void clear();
+	void Java_java_lang_ref_WeakReference_clear() {
+	  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
+	  jint refIndex = thisObj().referent_index();
+	  if (refIndex >= 0) {
+	    ObjectHeap::unregister_global_ref_object(refIndex);
+	    thisObj().set_referent_index(-1);
+	  }
+	}
 
-// native void finalize();
-void Java_java_lang_ref_WeakReference_finalize() {
-  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
-  jint refIndex = thisObj().referent_index();
-  if (refIndex >= 0) {
-    ObjectHeap::unregister_global_ref_object(refIndex);
-    thisObj().set_referent_index(-1); // just for sanity
-  }
-}
+	// native void finalize();
+	void Java_java_lang_ref_WeakReference_finalize() {
+	  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
+	  jint refIndex = thisObj().referent_index();
+	  if (refIndex >= 0) {
+	    ObjectHeap::unregister_global_ref_object(refIndex);
+	    thisObj().set_referent_index(-1); // just for sanity
+	  }
+	}
 
-#if USE_SOFT_REFERENCES
-// native void initializeSoftReference(Object referent);
-void
-Java_java_lang_ref_SoftReference_initializeSoftReference(JVM_SINGLE_ARG_TRAPS)
-{
-  UsingFastOops fast_oops;
-  WeakReference::Fast thisObj = GET_PARAMETER_AS_OOP(0);
-  Oop::Fast referent = GET_PARAMETER_AS_OOP(1);
+	#if USE_SOFT_REFERENCES
+	// native void initializeSoftReference(Object referent);
+	void
+	Java_java_lang_ref_SoftReference_initializeSoftReference(JVM_SINGLE_ARG_TRAPS)
+	{
+	  UsingFastOops fast_oops;
+	  WeakReference::Fast thisObj = GET_PARAMETER_AS_OOP(0);
+	  Oop::Fast referent = GET_PARAMETER_AS_OOP(1);
 
-  thisObj().set_referent_index(-1); // in case of failure, or if referent==NULL
+	  thisObj().set_referent_index(-1); // in case of failure, or if referent==NULL
 
-  if (referent.not_null()) {
-    const ObjectHeap::ReferenceType type = ObjectHeap::SOFT;
-    const int refIndex = ObjectHeap::register_global_ref_object(&referent,
-      type JVM_MUST_SUCCEED);
-    if( refIndex < 0 ) {
-      Throw::out_of_memory_error(JVM_SINGLE_ARG_THROW);
-    }
-    thisObj().set_referent_index(refIndex);
-  }
-}
+	  if (referent.not_null()) {
+	    const ObjectHeap::ReferenceType type = ObjectHeap::SOFT;
+	    const int refIndex = ObjectHeap::register_global_ref_object(&referent,
+	      type JVM_MUST_SUCCEED);
+	    if( refIndex < 0 ) {
+	      Throw::out_of_memory_error(JVM_SINGLE_ARG_THROW);
+	    }
+	    thisObj().set_referent_index(refIndex);
+	  }
+	}
 
-// native Object get();
-ReturnOop Java_java_lang_ref_SoftReference_get() {
-  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
-  jint refIndex = thisObj().referent_index();
-  if (refIndex < 0) {
-    return NULL;
-  } else {
-    ObjectHeap::soft_ref_increase_counter(refIndex);
-    return ObjectHeap::get_global_ref_object(refIndex);
-  }
-}
+	// native Object get();
+	ReturnOop Java_java_lang_ref_SoftReference_get() {
+	  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
+	  jint refIndex = thisObj().referent_index();
+	  if (refIndex < 0) {
+	    return NULL;
+	  } else {
+	    ObjectHeap::soft_ref_increase_counter(refIndex);
+	    return ObjectHeap::get_global_ref_object(refIndex);
+	  }
+	}
 
-// native void clear();
-void Java_java_lang_ref_SoftReference_clear() {
-  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
-  jint refIndex = thisObj().referent_index();
-  if (refIndex >= 0) {
-    ObjectHeap::unregister_global_ref_object(refIndex);
-    thisObj().set_referent_index(-1);
-  }
-}
+	// native void clear();
+	void Java_java_lang_ref_SoftReference_clear() {
+	  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
+	  jint refIndex = thisObj().referent_index();
+	  if (refIndex >= 0) {
+	    ObjectHeap::unregister_global_ref_object(refIndex);
+	    thisObj().set_referent_index(-1);
+	  }
+	}
 
-// native void finalize();
-void Java_java_lang_ref_SoftReference_finalize() {
-  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
-  jint refIndex = thisObj().referent_index();
-  if (refIndex >= 0) {
-    ObjectHeap::unregister_global_ref_object(refIndex);
-    thisObj().set_referent_index(-1); // just for sanity
-  }
-}
-#endif
+	// native void finalize();
+	void Java_java_lang_ref_SoftReference_finalize() {
+	  WeakReference::Raw thisObj = GET_PARAMETER_AS_OOP(0);
+	  jint refIndex = thisObj().referent_index();
+	  if (refIndex >= 0) {
+	    ObjectHeap::unregister_global_ref_object(refIndex);
+	    thisObj().set_referent_index(-1); // just for sanity
+	  }
+	}
+	#endif
 
-ReturnOop Java_java_lang_String_intern(JVM_SINGLE_ARG_TRAPS) {
-  UsingFastOops fast_oops;
-  String::Fast thisObj = GET_PARAMETER_AS_OOP(0);
-  return Universe::interned_string_for(&thisObj JVM_NO_CHECK_AT_BOTTOM_0);
-}
+	ReturnOop Java_java_lang_String_intern(JVM_SINGLE_ARG_TRAPS) {
+	  UsingFastOops fast_oops;
+	  String::Fast thisObj = GET_PARAMETER_AS_OOP(0);
+	  return Universe::interned_string_for(&thisObj JVM_NO_CHECK_AT_BOTTOM_0);
+	}
 
-#endif  // ENABLE_CLDC_11
+	#endif  // ENABLE_CLDC_11
 
-#if ENABLE_SEMAPHORE
-void Java_com_sun_cldc_util_SemaphoreLock_release() {
-  UsingFastOops fast_oops;
-  SemaphoreLock::Fast thisObj = GET_PARAMETER_AS_OOP(0);
-  thisObj().release();
-}
+	#if ENABLE_SEMAPHORE
+	void Java_com_sun_cldc_util_SemaphoreLock_release() {
+	  UsingFastOops fast_oops;
+	  SemaphoreLock::Fast thisObj = GET_PARAMETER_AS_OOP(0);
+	  thisObj().release();
+	}
 
-void Java_com_sun_cldc_util_SemaphoreLock_acquire() {
-  UsingFastOops fast_oops;
-  SemaphoreLock::Fast thisObj = GET_PARAMETER_AS_OOP(0);
-  thisObj().acquire();
-}
-#endif
+	void Java_com_sun_cldc_util_SemaphoreLock_acquire() {
+	  UsingFastOops fast_oops;
+	  SemaphoreLock::Fast thisObj = GET_PARAMETER_AS_OOP(0);
+	  thisObj().acquire();
+	}
+	#endif
 
-jint Java_com_sun_cldchi_jvm_JVM_verifyNextChunk(JVM_SINGLE_ARG_TRAPS) {
-#if ENABLE_VERIFY_ONLY
-  UsingFastOops fast_oops;
-  String::Fast jar_str = GET_PARAMETER_AS_OOP(1);
-  jint next_chunk_id = KNI_GetParameterAsInt(2);
-  jint chunk_size = KNI_GetParameterAsInt(3);
+	jint Java_com_sun_cldchi_jvm_JVM_verifyNextChunk(JVM_SINGLE_ARG_TRAPS) {
+	#if ENABLE_VERIFY_ONLY
+	  UsingFastOops fast_oops;
+	  String::Fast jar_str = GET_PARAMETER_AS_OOP(1);
+	  jint next_chunk_id = KNI_GetParameterAsInt(2);
+	  jint chunk_size = KNI_GetParameterAsInt(3);
 
-  GlobalSaver verify_saver(&VerifyOnly);
-  VerifyOnly = 1;
+	  GlobalSaver verify_saver(&VerifyOnly);
+	  VerifyOnly = 1;
 
-#ifndef PRODUCT
-  tty->print("Verifying JAR ");
-  jar_str().print_string_on(tty);
-  tty->print_cr(" chunk_id: %d", next_chunk_id);
-#endif
+	#ifndef PRODUCT
+	  tty->print("Verifying JAR ");
+	  jar_str().print_string_on(tty);
+	  tty->print_cr(" chunk_id: %d", next_chunk_id);
+	#endif
 
-  FilePath::Fast path = FilePath::from_string(&jar_str JVM_CHECK_0);
-  return Universe::load_next_and_verify(&path, next_chunk_id,
-                                        chunk_size JVM_NO_CHECK_AT_BOTTOM);
+	  FilePath::Fast path = FilePath::from_string(&jar_str JVM_CHECK_0);
+	  return Universe::load_next_and_verify(&path, next_chunk_id,
+						chunk_size JVM_NO_CHECK_AT_BOTTOM);
 
-#else
+	#else
 
-  return -1;
+	  return -1;
 
-#endif
-}
+	#endif
+	}
 
-void Java_com_sun_cldchi_jvm_JVM_flushJarCaches(JVM_SINGLE_ARG_TRAPS) {
-  JarFileParser::flush_caches();
-}
+	void Java_com_sun_cldchi_jvm_JVM_flushJarCaches(JVM_SINGLE_ARG_TRAPS) {
+	  JarFileParser::flush_caches();
+	}
 
-void Java_org_joshvm_system_PlatformControl_reset0() {
-  OsMisc_hardware_power_reset();
-}
+	void Java_org_joshvm_system_PlatformControl_reset0() {
+	  OsMisc_hardware_power_reset();
+	}
 
-jint Java_org_joshvm_system_PlatformControl_setSystemTime() {
-  jlong millis = KNI_GetParameterAsLong(1);
-  if (OsMisc_set_system_time(millis) == 0) {
-    // set successfully
-    return 1;
-  }
-  return 0;
-}
+	jint Java_org_joshvm_system_PlatformControl_setSystemTime() {
+	  jlong millis = KNI_GetParameterAsLong(1);
+	  if (OsMisc_set_system_time(millis) == 0) {
+	    // set successfully
+	    return 1;
+	  }
+	  return 0;
+	}
+	KNI_RETURNTYPE_VOID Java_org_joshvm_blufi_BlufiServer_start(){
+	#if ENABLE_PCSL
+	   int nameLen;
+           char bleName[64];
+	   int i;
+           jchar* temp;
+	   KNI_StartHandles(1);
+	   KNI_DeclareHandle(nameObject);
+	   KNI_GetParameterAsObject(1,nameObject);
+	   nameLen= KNI_GetStringLength(nameObject);
+	   if(nameLen>64){
+		tty->print_cr("ble name has word length: %d \n",nameLen);
+	//	KNI_ThrowNew(KNIIllegalArgumentException,(char*)gKNIBuffer);
+	   }
+		temp = (jchar*)bleName;
+		KNI_GetStringRegion(nameObject,0,nameLen,temp);
+		for(i =0;i<nameLen;i++){
+			bleName[i] =(char)temp[i];	
+	   
+           bleName[nameLen] = 0;
+	   javacall_blufi_start(bleName);
+		}	
+	   //}
+	   //javacall_printf(nameLen)
+	   //javacall_blufi_start();
+	   //jchar * bluetoothName =(jchar *) pcsl_mem_malloc(nameLen+1);
+	   //int tmpLen ;
+           //tmpLen = KNI_GetStringLength((jchar*)bluetoothName);
+	   //tty -> print_cr("%dfenge",nameLen);
+	   //tty -> printf("%sfenge",(char *)nameObject);
+	   //if(bluetoothName){
+	     // KNI_GetStringRegion(nameObject,0,nameLen,bluetoothName);
+	      //bluetoothName[nameLen] = 0;
+              
+		//tty ->print_cr( "b %s b",(char *)bluetoothName);
+	      //javacall_blufi_start((char *)bluetoothName);
+	      //pcsl_mem_free(bluetoothName);
+	   //}
+	   KNI_EndHandles();
+	   
+	#endif
+	}
 
-} // extern "C"
+	} // extern "C"
 
-#if (!ROMIZING) || (!defined(PRODUCT))
+	#if (!ROMIZING) || (!defined(PRODUCT))
 
-void Natives::register_function(InstanceClass* c,
-                                const JvmNativeFunction* functions,
-                                bool is_native JVM_TRAPS) {
-  UsingFastOops fast_oops;
-  ObjArray::Fast methods = c->methods();
+	void Natives::register_function(InstanceClass* c,
+					const JvmNativeFunction* functions,
+					bool is_native JVM_TRAPS) {
+	  UsingFastOops fast_oops;
+	  ObjArray::Fast methods = c->methods();
   Symbol::Fast name;
   Signature::Fast signature;
   Method::Fast m;

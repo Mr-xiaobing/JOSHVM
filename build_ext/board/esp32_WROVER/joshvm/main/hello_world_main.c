@@ -19,6 +19,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_spiffs.h"
+#include "nvs_flash.h"
 
 static const char *TAG = "example";
 
@@ -126,10 +127,12 @@ static void rename_spiffs(const char* mount_point, const char* partition_label, 
     // All done, unmount partition and disable SPIFFS
     esp_vfs_spiffs_unregister(partition_label);
 }
-
+extern void initialise_wifi();
 extern void JavaTask();
+extern void blufi_init_joshvm();
 void app_main()
 {
+esp_err_t ret;
     printf("Hello world!\n");
 
     /* Print chip information */
@@ -161,6 +164,7 @@ void app_main()
 		printf("Can't find properties file\n");
 	}
 	printf("Starting JOSH VM...\n");
+   blufi_init_joshvm();
 	JavaTask();
 
     for (int i = 10; i >= 0; i--) {
@@ -171,3 +175,4 @@ void app_main()
     fflush(stdout);
     esp_restart();
 }
+//void blufi_start_joshvm(){}
