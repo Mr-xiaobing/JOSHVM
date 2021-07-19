@@ -26,8 +26,6 @@
 
 #include "incls/_precompiled.incl"
 #include "incls/_Natives.cpp.incl"
-#if ENABLE_PCSL
-#endif
 // Special VM natives
 
 #if ENABLE_DYNAMIC_NATIVE_METHODS || ENABLE_ROM_GENERATOR
@@ -1670,5 +1668,3 @@ extern "C" void trace_native_call() {
 }
 
 #endif
-
-
