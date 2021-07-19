@@ -34,8 +34,10 @@
 #include "esp_bt_device.h"
 #include "blufi_example.h"
 extern void javacall_printf(const char * format,...);
+extern void javanotify_blufi_event(const int val);
 static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param);
-
+#define BLUFI_EVT_CUSTOMDATA 1
+#define CUSTOM_SIZE 64
 #define BLUFI_DEVICE_NAME            "BLUFI_DEVICE"
 static char blufi_device_name[64]={'B','L','U','F','I','_','D','E','M','O','\0'};
 static uint8_t example_service_uuid128[32] = {
@@ -43,7 +45,7 @@ static uint8_t example_service_uuid128[32] = {
     //first uuid, 16bit, [12],[13] is the value
     0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
 };
-
+static int custom_data_len = 0;
 //static uint8_t test_manufacturer[TEST_MANUFACTURER_DATA_LEN] =  {0x12, 0x23, 0x45, 0x56};
 static esp_ble_adv_data_t example_adv_data = {
     .set_scan_rsp = false,
@@ -76,6 +78,10 @@ static esp_ble_adv_params_t example_adv_params = {
 
 static wifi_config_t sta_config;
 static wifi_config_t ap_config;
+/*
+  custom buffer
+*/
+static unsigned char custom_buffer[64];
 
 /* FreeRTOS event group to signal when we are connected & ready to make a request */
 static EventGroupHandle_t wifi_event_group;
@@ -246,7 +252,7 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
         javacall_printf("BLUFI init finish\n");
         javacall_printf("blufi init  %s",blufi_device_name);
         rets= esp_ble_gap_set_device_name(blufi_device_name);
-       javacall_printf("error or successful %d",rets);
+        javacall_printf("error or successful %d",rets);
         esp_ble_gap_config_adv_data(&example_adv_data);
         break;
     case ESP_BLUFI_EVENT_DEINIT_FINISH:
@@ -381,6 +387,13 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
         javacall_printf("Recv Custom Data %d\n", param->custom_data.data_len);
         esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
+	if(custom_data_len==0){
+		int actualLen = param->custom_data.data_len;
+		if (actualLen > CUSTOM_SIZE) actualLen = CUSTOM_SIZE;
+		memcpy(custom_buffer,param->custom_data.data,actualLen);
+		custom_data_len = actualLen;
+		javanotify_blufi_event(BLUFI_EVT_CUSTOMDATA);
+	}
         break;
 	case ESP_BLUFI_EVENT_RECV_USERNAME:
         /* Not handle currently */
@@ -415,26 +428,25 @@ static void example_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_
         break;
     }
 }
-
-
 void blufi_getWifiState_joshvm(){
 	 wifi_mode_t mode;
 	 esp_blufi_extra_info_t info;
-//	 获取连接wifi的模式
-	 esp_wifi_get_mode(&mode);  // 获取wifi的模式
+//
+	 esp_wifi_get_mode(&mode);  // 
 	 if (gl_sta_connected) {
 		 memset(&info, 0, sizeof(esp_blufi_extra_info_t));
-	     memcpy(info.sta_bssid, gl_sta_bssid, 6);// 拷贝字符串
+	     memcpy(info.sta_bssid, gl_sta_bssid, 6);// 
 	     info.sta_bssid_set = true;
 	     info.sta_ssid = gl_sta_ssid;
 	     info.sta_ssid_len = gl_sta_ssid_len;
-//	             wifi连接状态
+//	           
 	     esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, &info);
 	     javacall_printf("get wifi state");
 	  } else {
 	     esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, NULL);
 	  }
 	  BLUFI_INFO("BLUFI get wifi status from AP\n");
+
 }
 
 void blufi_init_joshvm(void)
@@ -444,9 +456,9 @@ void blufi_init_joshvm(void)
     // Initialize NVS
 
     ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+   if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
+       ret = nvs_flash_init();
     }
     javacall_printf("nvs_flash_init return %d\n", ret);
     ESP_ERROR_CHECK( ret );
@@ -492,24 +504,38 @@ void blufi_init_joshvm(void)
     javacall_printf("BLUFI VERSION %04x\n", esp_blufi_get_version());
 }
 void blufi_setBleName_joshvm(char* deviceName) {
-    esp_err_t ret;
     int nameLen = strlen(deviceName);
     strncpy(blufi_device_name, deviceName, 63);
     blufi_device_name[63] = '\0';
+    javacall_printf("test %s",blufi_device_name);
 }
 
-void blufi_start_joshvm(char* deviceName) {
+int  blufi_getCustomData_joshvm(unsigned char* buffer,int buflen){
+	javacall_printf("in blufi_getCustomData_joshvm");
+	
+	if(custom_data_len>0){
+	    /*Data available*/
+	    if (buflen > custom_data_len) buflen = custom_data_len;
+	    memcpy(buffer,custom_buffer,buflen);
+	    custom_data_len=0;
+	}else{
+	    buflen = 0 ;
+	}
+	return buflen;
+}
+
+void blufi_start_joshvm() {
 
     esp_err_t ret;
 
     // Initialize NVS
 
-    ret = nvs_flash_init();
-    javacall_printf("ret is %d",ret);
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
+   // ret = nvs_flash_init();
+    //javacall_printf("ret is %d",ret);
+    //if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        //ESP_ERROR_CHECK(nvs_flash_erase());
+        //ret = nvs_flash_init();
+    //}
 
     ret = esp_ble_gap_register_callback(example_gap_event_handler);
     if(ret){
@@ -523,4 +549,11 @@ void blufi_start_joshvm(char* deviceName) {
     }
 
     esp_blufi_profile_init();
+}
+void blufi_sendMessageToPhone_joshvm(char* message){
+		javacall_printf("test");
+		int len =0;
+		len =strlen(message);
+		javacall_printf("message:%s  len %d \n",message,len);
+		esp_blufi_send_custom_data((uint8_t*)message,(uint32_t)len);
 }

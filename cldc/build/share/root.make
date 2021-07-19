@@ -203,6 +203,11 @@ include $(MEDIA_DIR)/makefiles/classpath.make
 JOSH_BUILD_MODULES += josh-media
 endif
 
+ifeq ($(ENABLE_ESP32_BLUFI),true)
+include $(ESP32_BLUFI_DIR)/makefiles/classpath.make
+JOSH_BUILD_MODULES += esp32-blufi
+endif
+
 ifeq ($(ENABLE_JSR179), true)
 include $(JSR179_DIR)/makefiles/classpath.make
 JOSH_BUILD_MODULES += jsr179

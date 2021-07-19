@@ -63,6 +63,7 @@ typedef enum SNIsignalType {
     MEDIA_PREPARE_SIGNAL,
     MEDIA_READ_SIGNAL,
     MEDIA_WRITE_SIGNAL,
+    BLUFI_SIGNAL,
 } SNIsignalType;
 
 /**

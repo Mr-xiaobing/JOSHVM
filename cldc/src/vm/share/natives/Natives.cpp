@@ -27,9 +27,6 @@
 #include "incls/_precompiled.incl"
 #include "incls/_Natives.cpp.incl"
 #if ENABLE_PCSL
-#include <javacall_blufi.h>
-#include <javacall_logging.h>
-#include <pcsl_memory.h>
 #endif
 // Special VM natives
 
@@ -696,13 +693,13 @@ void Java_java_lang_Runtime_gc(JVM_SINGLE_ARG_TRAPS) {
 **/
 #if ENABLE_FREQUENT_FORCED_GC_SUPPRESSION
   const jlong free = ObjectHeap::available_for_current_task();
-  enum { min_free = 2 * 1024 * 1024 };  
+  enum { min_free = 2 * 1024 * 1024 };
   if( free < min_free ) {
     static jlong previous_gc_time;
     const jlong current_gc_time = Os::java_time_millis();
     // For performance reasons don't collect if we are
     // called within 500ms of the previous call.
-    enum { min_interval = 500 };  
+    enum { min_interval = 500 };
     if ((current_gc_time - previous_gc_time) >= min_interval) {
       ObjectHeap::full_collect(JVM_SINGLE_ARG_NO_CHECK_AT_BOTTOM);
       previous_gc_time = current_gc_time;
@@ -1586,49 +1583,6 @@ ReturnOop Java_com_sun_cldc_io_ResourceInputStream_open(JVM_SINGLE_ARG_TRAPS) {
 	  }
 	  return 0;
 	}
-	KNI_RETURNTYPE_VOID Java_org_joshvm_blufi_BlufiServer_start(){
-	#if ENABLE_PCSL
-	   int nameLen;
-           char bleName[64];
-	   int i;
-           jchar* temp;
-	   KNI_StartHandles(1);
-	   KNI_DeclareHandle(nameObject);
-	   KNI_GetParameterAsObject(1,nameObject);
-	   nameLen= KNI_GetStringLength(nameObject);
-	   if(nameLen>64){
-		tty->print_cr("ble name has word length: %d \n",nameLen);
-	//	KNI_ThrowNew(KNIIllegalArgumentException,(char*)gKNIBuffer);
-	   }
-		temp = (jchar*)bleName;
-		KNI_GetStringRegion(nameObject,0,nameLen,temp);
-		for(i =0;i<nameLen;i++){
-			bleName[i] =(char)temp[i];	
-	   
-           bleName[nameLen] = 0;
-	   javacall_blufi_start(bleName);
-		}	
-	   //}
-	   //javacall_printf(nameLen)
-	   //javacall_blufi_start();
-	   //jchar * bluetoothName =(jchar *) pcsl_mem_malloc(nameLen+1);
-	   //int tmpLen ;
-           //tmpLen = KNI_GetStringLength((jchar*)bluetoothName);
-	   //tty -> print_cr("%dfenge",nameLen);
-	   //tty -> printf("%sfenge",(char *)nameObject);
-	   //if(bluetoothName){
-	     // KNI_GetStringRegion(nameObject,0,nameLen,bluetoothName);
-	      //bluetoothName[nameLen] = 0;
-              
-		//tty ->print_cr( "b %s b",(char *)bluetoothName);
-	      //javacall_blufi_start((char *)bluetoothName);
-	      //pcsl_mem_free(bluetoothName);
-	   //}
-	   KNI_EndHandles();
-	   
-	#endif
-	}
-
 	} // extern "C"
 
 	#if (!ROMIZING) || (!defined(PRODUCT))
@@ -1714,5 +1668,7 @@ extern "C" void trace_native_call() {
 
   tty->print_cr("(unknown)");
 }
+
 #endif
+
 

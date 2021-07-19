@@ -430,6 +430,15 @@ extern "C" void javanotify_gpio_pin_value_changed(const javacall_handle h, const
 
 	javacall_event_send((unsigned char*)&rd, sizeof(SNIReentryData));
 }
+extern "C" void javanotify_blufi_event(const int val){
+	SNIReentryData rd;
+	rd.status = val;
+	rd.descriptor = -1;
+	rd.pContext = 0;
+	rd.waitingFor = BLUFI_SIGNAL;
+	
+	javacall_event_send((unsigned char *)&rd,sizeof(SNIReentryData));
+}
 
 extern "C" void javanotify_gpio_pin_closed(const javacall_handle h) {
 	SNIReentryData rd;
@@ -441,7 +450,6 @@ extern "C" void javanotify_gpio_pin_closed(const javacall_handle h) {
 
 	javacall_event_send((unsigned char*)&rd, sizeof(SNIReentryData));
 }
-
 #if ENABLE_DIRECTUI
 #include "javacall_directui.h"
 

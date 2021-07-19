@@ -196,6 +196,10 @@ ifeq ($(ENABLE_SECURITY), true)
 include $(SECURITY_DIR)/makefiles/vm_module.make
 endif
 
+ifeq ($(ENABLE_ESP32_BLUFI),true)
+include $(ESP32_BLUFI_DIR)/makefiles/vm_module.make
+endif
+
 ifeq ($(ENABLE_JAVACALL_TEST), false)
 ENABLE_CFLAGS += -DENABLE_JAVACALL_NATIVE_TEST=0
 endif
@@ -362,6 +366,10 @@ ifeq ($(TRACE_BYTECODES), true)
 TRACE_BYTECODES_FLAG   = +TraceBytecodes
 else
 TRACE_BYTECODES_FLAG   =
+endif
+
+ifeq ($(ENABLE_ESP32_BLUFI),true)
+Obj_Files  +=  ${BLUFI_Obj_Files}
 endif
 
 ifeq ($(ENABLE_INLINEASM_INTERPRETER), true)
