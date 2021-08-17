@@ -41,7 +41,7 @@ void app_wifi_service(void);
  * @return
  *
  */
-joshvm_err_t joshvm_esp32_wifi_set(char* ssid, char* password, int force);
+joshvm_err_t joshvm_esp32_wifi_set(char* ssid, int ssid_len, char* password, int password_len, int force);
 
 /**
  * @brief 

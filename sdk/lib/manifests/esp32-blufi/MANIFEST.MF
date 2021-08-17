@@ -1,0 +1,5 @@
+API: JOSHESP32Blufi
+API-Name: JOSH ESP32 Blufi API
+API-Type: Optional
+API-Specification-Version: 1.0
+

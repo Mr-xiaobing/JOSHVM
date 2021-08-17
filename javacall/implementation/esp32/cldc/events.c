@@ -12,7 +12,7 @@ extern "C" {
 
 StaticQueue_t xQueueBuffer;
 uint8_t ucQueueStorage[ QUEUE_LENGTH * ITEM_SIZE ];
-QueueHandle_t xQueue;
+QueueHandle_t xQueue = NULL;
 
 
 /**
@@ -94,7 +94,7 @@ javacall_result javacall_event_send(unsigned char* binaryBuffer,
                                     int binaryBufferLen){
 
 	BaseType_t xHigherPriorityTaskWoken;
-	if ((binaryBufferLen <= ITEM_SIZE) && xQueueSendFromISR(xQueue, binaryBuffer, &xHigherPriorityTaskWoken)) {
+	if ((xQueue != NULL) && (binaryBufferLen <= ITEM_SIZE) && xQueueSendFromISR(xQueue, binaryBuffer, &xHigherPriorityTaskWoken)) {
 		if( xHigherPriorityTaskWoken ) {
 	       portYIELD_FROM_ISR();
 	    }

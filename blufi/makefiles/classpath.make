@@ -22,7 +22,7 @@ MODULE_NAME=esp32-blufi
 # Javadoc source path
 BLUFI_SOURCEPATH += $(BUILD_ROOT_DIR)/blufi/src/classes
 
-# Java files for the ( nio ) module
+# Java files for the ( blufi ) module
 #
 
 BLUFI_JAVA_DIR = $(ESP32_BLUFI_DIR)/src/classes
@@ -38,13 +38,21 @@ MODULE_BLUFI_API_JAVA_FILES = \
 #
 MODULE_BLUFI_IMPL_JAVA_FILES += \
 
+# WIFI classes
+#
+MODULE_WIFI_API_JAVA_FILES = \
+	${BLUFI_JAVA_DIR}/org/joshvm/esp32/wifi/WifiManager.java \
+	${BLUFI_JAVA_DIR}/org/joshvm/esp32/wifi/WifiStationConfig.java \
+	${BLUFI_JAVA_DIR}/org/joshvm/esp32/wifi/WifiEventListener.java
+
 # Determines what option we have made and assigns it to the
 # variable that the global makefile recognizes.
 #
 JSR_JAVA_FILES_DIR += \
     $(MODULE_BLUFI_API_JAVA_FILES) \
-    $(MODULE_BLUFI_IMPL_JAVA_FILES)
+    $(MODULE_BLUFI_IMPL_JAVA_FILES) \
+	$(MODULE_WIFI_API_JAVA_FILES)
 
 DOC_SOURCE_$(MODULE_NAME)_PATH=$(BLUFI_SOURCEPATH)
 DOC_SOURCE_PATH := $(DOC_SOURCE_PATH)$(DOC_SOURCE_$(MODULE_NAME)_PATH)$(DOC_PATH_SEP)
-DOC_$(MODULE_NAME)_PACKAGES += org.joshvm.esp32.blufi
+DOC_$(MODULE_NAME)_PACKAGES += org.joshvm.esp32.blufi org.joshvm.esp32.wifi

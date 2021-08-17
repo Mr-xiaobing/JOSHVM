@@ -17,8 +17,7 @@
 # Please visit www.joshvm.org if you need additional information or
 # have any questions.
 BLUFI_SRC_DIR = $(ESP32_BLUFI_DIR)/src/native
-#  -I"$(NIO_SRC_DIR)/cldc/native/inc"
-#   ${NIO_SRC_DIR}/cldc-oi/config/nio_rom.cfg 
+
 JSR_EXT_INCLUDE_DIRS +=
 ROMGEN_CFG_FILES += 
 

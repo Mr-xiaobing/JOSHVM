@@ -185,6 +185,9 @@ ifeq ($(USE_MULTIPLE_INSTANCES),true)
 SPECIFIC_DEFINITIONS+=-DENABLE_MULTIPLE_INSTANCES=1
 endif
 
+ifeq ($(USE_ESP32_BLUFI),true)
+SPECIFIC_DEFINITIONS+= -DENABLE_ESP32_BLUFI=1
+endif
 
 
 # NEED REVISIT: provide pure solution without hidden dependencies

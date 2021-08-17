@@ -290,17 +290,28 @@ void app_wifi_service(void)
 	xTaskCreate(app_wifi_task,"app_wifi_task",3*1024,NULL,5,NULL);	
 }
 
-joshvm_err_t joshvm_esp32_wifi_set(char* ssid, char* password, int force)
-{
-	int ret = JOSHVM_FAIL;
-	if((strlen(ssid) == 0)  || (strlen(password)) == 0){
-		ESP_LOGE(TAG,"Property file's ssid or passwd is null!");
-		return JOSHVM_FAIL;
-	}
+joshvm_err_t joshvm_esp32_wifi_set(char* ssid, int ssid_len, char* password, int password_len, int force)
+{	
+	//If ssid == NULL, keep ssid untouched
+    if (ssid) {
+        if (ssid_len < 0 || ssid_len >= sizeof(sta_config.sta.ssid) ||
+			ssid_len >= sizeof(app_wifi_config->property_ssid)) {
+            return JOSHVM_FAIL;
+        }
+        memcpy((char *)sta_config.sta.ssid, ssid, ssid_len);
+        sta_config.sta.ssid[ssid_len] = '\0';
+    }
 
-	strncpy(app_wifi_config->property_ssid,ssid,strlen(ssid));
-	strncpy(app_wifi_config->property_password ,password,strlen(password));
-	
+    //If password is NULL, keep password untouched
+    if (password) {
+        if (password_len < 0 || password_len >= sizeof(sta_config.sta.password) ||
+			password_len >= sizeof(app_wifi_config->property_password)) {
+            return JOSHVM_FAIL;
+        }
+        memcpy((char *)sta_config.sta.password, password, password_len);
+        sta_config.sta.password[password_len] = '\0';
+    }
+
 	if(force == false){
 		ESP_LOGI(TAG,"if saved ssid pwd can't connect,property cfg will be set and then connecting wifi!");
 		return JOSHVM_NOTIFY_LATER; 

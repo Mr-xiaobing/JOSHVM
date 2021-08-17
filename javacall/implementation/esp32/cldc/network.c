@@ -29,7 +29,7 @@
 
 #define JC_NETWORK_MALLOC(size) javacall_malloc(size)
 
-#if USE_ESP_MINI || USE_JOSH_EVB
+#if USE_ESP_MINI || USE_JOSH_EVB || ENABLE_ESP32_BLUFI
 #define ENABLE_DO_NETWORK_INIT 0
 #else
 #define ENABLE_DO_NETWORK_INIT 1
@@ -1608,11 +1608,13 @@ int javacall_datagram_close(
 }
 
 void javacall_network_config() {
-#if !ENABLE_DO_NETWORK_INIT
-    extern int joshvm_esp32_wifi_set(char* ssid, char* password, int force);
+#if !ENABLE_DO_NETWORK_INIT    
+    extern joshvm_esp32_wifi_set(char* ssid, int ssid_len, char* password, int password_len, int force);
     char ssid[32];
     char password[64];
-    char* value;
+    char* value = NULL;
+    memset(ssid, 0, sizeof(ssid));
+    memset(password, 0, sizeof(password));
     if ((javacall_get_property("system.network.wifi.ssid", JAVACALL_INTERNAL_PROPERTY, &value) != JAVACALL_OK) ||
         (value == NULL) || (strlen(value) == 0)) {
         return;
@@ -1627,6 +1629,6 @@ void javacall_network_config() {
         strncpy(password, value, sizeof(password) - 1);
     }
 
-    joshvm_esp32_wifi_set(ssid, password, 1);
+    joshvm_esp32_wifi_set(ssid, strlen(ssid), password, strlen(password), 1);
 #endif
 }

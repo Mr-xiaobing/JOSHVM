@@ -36,7 +36,30 @@
 extern void javacall_printf(const char * format,...);
 extern void javanotify_blufi_event(const int val);
 static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param);
+
+//Macros of Blufi Events. See BlufiThread.java
 #define BLUFI_EVT_CUSTOMDATA 1
+#define BLUFI_EVT_SSID 2
+#define BLUFI_EVT_PASSWORD 3
+#define BLUFI_EVT_ACTIVE_CLOSE 4
+#define BLUFI_EVT_CONNECT 5
+#define BLUFI_EVT_DISCONNECT 6
+#define BLUFI_EVT_GOT_REQ_WIFI_CONNECT 7
+#define BLUFI_EVT_GOT_REQ_WIFI_DISCONNECT 8
+#define WIFI_EVT_START 100
+#define WIFI_EVT_CONNECTED 101
+#define WIFI_EVT_DISCONNECTED 102
+#define WIFI_EVT_GOT_IP 103
+
+//Wifi disconnect reason
+#define JOSHVM_WIFI_DISCONNECT_REASON_DEFAULT 0
+#define JOSHVM_WIFI_DISCONNECT_REASON_AUTH_EXPIRE 1
+#define JOSHVM_WIFI_DISCONNECT_REASON_4WAY_HANDSHAKE_TIMEOUT 2
+#define JOSHVM_WIFI_DISCONNECT_REASON_AUTH_FAIL 3
+#define JOSHVM_WIFI_DISCONNECT_REASON_ASSOC_EXPIRE 4
+#define JOSHVM_WIFI_DISCONNECT_REASON_HANDSHAKE_TIMEOUT 5
+#define JOSHVM_WIFI_DISCONNECT_REASON_NO_AP_FOUND 6
+
 #define CUSTOM_SIZE 64
 #define BLUFI_DEVICE_NAME            "BLUFI_DEVICE"
 static char blufi_device_name[64]={'B','L','U','F','I','_','D','E','M','O','\0'};
@@ -78,6 +101,15 @@ static esp_ble_adv_params_t example_adv_params = {
 
 static wifi_config_t sta_config;
 static wifi_config_t ap_config;
+
+static enum {
+    STA_UNINITIALIZED = 0,
+    STA_START,
+    STA_CONNECTING,
+    STA_CONNECTED,
+    STA_DISCONNECTED
+} wifi_status = STA_UNINITIALIZED;
+
 /*
   custom buffer
 */
@@ -102,6 +134,122 @@ static int gl_sta_ssid_len;
 static uint8_t server_if;
 static uint16_t conn_id;
 
+/* flag auto reconnect setting*/
+int auto_reconnect = 0;
+
+
+//
+// JOSHVM supply code
+//
+void joshvm_esp32_blufi_set_ble_name(char* deviceName) {
+    strncpy(blufi_device_name, deviceName, 63);
+    blufi_device_name[63] = '\0';
+}
+
+int  joshvm_esp32_blufi_get_data(unsigned char* buffer,int buflen){
+	
+	if(custom_data_len>0){
+	    /*Data available*/
+	    if (buflen > custom_data_len) buflen = custom_data_len;
+	    memcpy(buffer,custom_buffer,buflen);
+	    custom_data_len=0;
+	}else{
+	    buflen = 0 ;
+	}
+	return buflen;
+}
+
+void joshvm_esp32_blufi_send_data(char* message, int len){
+		esp_blufi_send_custom_data((uint8_t*)message,(uint32_t)len);
+}
+
+int joshvm_esp32_wifi_get_state(int* state) {
+    *state = wifi_status;
+    return 0;
+}
+
+wifi_config_t* joshvm_esp32_blufi_get_wifi_config() {
+    return &sta_config;
+}
+
+int joshvm_esp32_get_sys_info(char* info, int size) {   
+	return 0;
+}
+
+int joshvm_esp32_wifi_set(char* ssid, int ssid_len, char* password, int password_len, int force) {    
+    //If ssid == NULL, keep ssid untouched
+    if (ssid) {
+        if (ssid_len < 0 || ssid_len >= sizeof(sta_config.sta.ssid)) {
+            return -1;
+        }
+        memcpy((char *)sta_config.sta.ssid, ssid, ssid_len);
+        sta_config.sta.ssid[ssid_len] = '\0';
+    }
+
+    //If password is NULL, keep password untouched
+    if (password) {
+        if (password_len < 0 || password_len >= sizeof(sta_config.sta.password)) {
+            return -1;
+        }
+        memcpy((char *)sta_config.sta.password, password, password_len);
+        sta_config.sta.password[password_len] = '\0';
+    }
+
+    //Set wifi config if force is not 0
+    if (force) {
+        esp_wifi_set_config(WIFI_IF_STA, &sta_config);
+    }
+
+    return 0;
+}
+
+int joshvm_esp32_blufi_get_bt_addr(char* addr_buffer, int buffer_len) {
+    if (buffer_len < 6) {
+        return -1;
+    }
+
+    memcpy(addr_buffer, esp_bt_dev_get_address(), 6);
+    return 6;
+}
+
+int joshvm_esp32_wifi_get_connected_ssid(char* ssid_buffer, int buffer_len) {
+    if (buffer_len < gl_sta_ssid_len) {
+        return -1;
+    }
+    memcpy(ssid_buffer, gl_sta_ssid, gl_sta_ssid_len);
+    return gl_sta_ssid_len;
+}
+
+int joshvm_esp32_blufi_is_connected() {
+    if (ble_is_connected){
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+void joshvm_esp32_wifi_connect() {
+    /* there is no wifi callback when the device has already connected to this wifi
+        so disconnect wifi before connection.
+        */
+    esp_wifi_disconnect();
+    wifi_status = STA_DISCONNECTED;
+    auto_reconnect = 1;
+    esp_wifi_connect();
+    wifi_status = STA_CONNECTING;   
+}
+
+void joshvm_esp32_wifi_disconnect() {
+    auto_reconnect = 0;
+    esp_wifi_disconnect();
+    wifi_status = STA_DISCONNECTED; 
+}
+
+void joshvm_esp32_blufi_close() {
+    javanotify_blufi_event(BLUFI_EVT_ACTIVE_CLOSE);
+}
+
+/** Event handlers*/
 static void ip_event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
@@ -119,10 +267,10 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base,
         info.sta_bssid_set = true;
         info.sta_ssid = gl_sta_ssid;
         info.sta_ssid_len = gl_sta_ssid_len;
+        wifi_status = STA_CONNECTED;
+        javanotify_blufi_event(WIFI_EVT_GOT_IP);
         if (ble_is_connected == true) {
-            esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, &info);
-        } else {
-            javacall_printf("BLUFI BLE is not connected yet\n");
+            esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, &info);            
         }
         break;
     }
@@ -140,24 +288,64 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 
     switch (event_id) {
     case WIFI_EVENT_STA_START:
-        esp_wifi_connect();
+        wifi_status = STA_START;
+        //esp_wifi_connect();
+        //wifi_status = STA_CONNECTING;
+        javanotify_blufi_event(WIFI_EVT_START);
         break;
     case WIFI_EVENT_STA_CONNECTED:
         gl_sta_connected = true;
+        //wifi_status = STA_CONNECTED;
         event = (wifi_event_sta_connected_t*) event_data;
         memcpy(gl_sta_bssid, event->bssid, 6);
         memcpy(gl_sta_ssid, event->ssid, event->ssid_len);
         gl_sta_ssid_len = event->ssid_len;
+        javanotify_blufi_event(WIFI_EVT_CONNECTED);
         break;
     case WIFI_EVENT_STA_DISCONNECTED:
+        {
+        unsigned int reason;
+        wifi_event_sta_disconnected_t* disconnected = (wifi_event_sta_disconnected_t*) event_data;
+
         /* This is a workaround as ESP32 WiFi libs don't currently
            auto-reassociate. */
         gl_sta_connected = false;
+        wifi_status = STA_DISCONNECTED;
         memset(gl_sta_ssid, 0, 32);
         memset(gl_sta_bssid, 0, 6);
         gl_sta_ssid_len = 0;
-        esp_wifi_connect();
+        switch (disconnected->reason) {
+            case WIFI_REASON_AUTH_EXPIRE:
+                reason = JOSHVM_WIFI_DISCONNECT_REASON_AUTH_EXPIRE;
+                break;
+            case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
+                reason = JOSHVM_WIFI_DISCONNECT_REASON_4WAY_HANDSHAKE_TIMEOUT;
+                break;
+            case WIFI_REASON_AUTH_FAIL:
+                reason = JOSHVM_WIFI_DISCONNECT_REASON_AUTH_FAIL;
+                break;
+            case WIFI_REASON_ASSOC_EXPIRE:
+                reason = JOSHVM_WIFI_DISCONNECT_REASON_ASSOC_EXPIRE;
+                break;
+            case WIFI_REASON_HANDSHAKE_TIMEOUT:                
+                reason = JOSHVM_WIFI_DISCONNECT_REASON_HANDSHAKE_TIMEOUT;
+                break;
+            case WIFI_REASON_NO_AP_FOUND:
+                reason = JOSHVM_WIFI_DISCONNECT_REASON_NO_AP_FOUND;
+                break;
+            default:                
+                reason = JOSHVM_WIFI_DISCONNECT_REASON_DEFAULT;
+        }
+
+        if (reason == JOSHVM_WIFI_DISCONNECT_REASON_DEFAULT && auto_reconnect) {
+            esp_wifi_connect();
+            wifi_status = STA_CONNECTING;
+        } else {
+            javanotify_blufi_event(WIFI_EVT_DISCONNECTED | (reason << 16));
+        }
+
         xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+        }
         break;
     case WIFI_EVENT_AP_START:
         esp_wifi_get_mode(&mode);
@@ -169,20 +357,16 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
             } else {
                 esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, NULL);
             }
-        } else {
-            javacall_printf("BLUFI BLE is not connected yet\n");
         }
         break;
     case WIFI_EVENT_SCAN_DONE: {
         uint16_t apCount = 0;
         esp_wifi_scan_get_ap_num(&apCount);
         if (apCount == 0) {
-            javacall_printf("Nothing AP found");
             break;
         }
         wifi_ap_record_t *ap_list = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * apCount);
         if (!ap_list) {
-            javacall_printf("malloc error, ap_list is NULL");
             break;
         }
         ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&apCount, ap_list));
@@ -191,7 +375,6 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
             if (ap_list) {
                 free(ap_list);
             }
-            javacall_printf("malloc error, blufi_ap_list is NULL");
             break;
         }
         for (int i = 0; i < apCount; ++i)
@@ -202,8 +385,6 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
 
         if (ble_is_connected == true) {
             esp_blufi_send_wifi_list(apCount, blufi_ap_list);
-        } else {
-            javacall_printf("BLUFI BLE is not connected yet\n");
         }
 
         esp_wifi_scan_stop();
@@ -248,48 +429,37 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     esp_err_t rets;
     switch (event) {
     case ESP_BLUFI_EVENT_INIT_FINISH:
-
-        javacall_printf("BLUFI init finish\n");
-        javacall_printf("blufi init  %s",blufi_device_name);
         rets= esp_ble_gap_set_device_name(blufi_device_name);
-        javacall_printf("error or successful %d",rets);
         esp_ble_gap_config_adv_data(&example_adv_data);
         break;
     case ESP_BLUFI_EVENT_DEINIT_FINISH:
-        javacall_printf("BLUFI deinit finish\n");
         break;
     case ESP_BLUFI_EVENT_BLE_CONNECT:
-        javacall_printf("BLUFI ble connect\n");
         ble_is_connected = true;
         server_if = param->connect.server_if;
         conn_id = param->connect.conn_id;
         esp_ble_gap_stop_advertising();
         blufi_security_init();
+        javanotify_blufi_event(BLUFI_EVT_CONNECT);
         break;
     case ESP_BLUFI_EVENT_BLE_DISCONNECT:
-        javacall_printf("BLUFI ble disconnect\n");
         ble_is_connected = false;
         blufi_security_deinit();
         esp_ble_gap_start_advertising(&example_adv_params);
+        javanotify_blufi_event(BLUFI_EVT_DISCONNECT);
         break;
     case ESP_BLUFI_EVENT_SET_WIFI_OPMODE:
-        javacall_printf("BLUFI Set WIFI opmode %d\n", param->wifi_mode.op_mode);
         ESP_ERROR_CHECK( esp_wifi_set_mode(param->wifi_mode.op_mode) );
         break;
     case ESP_BLUFI_EVENT_REQ_CONNECT_TO_AP:
-        javacall_printf("BLUFI requset wifi connect to AP\n");
-        /* there is no wifi callback when the device has already connected to this wifi
-        so disconnect wifi before connection.
-        */
-        esp_wifi_disconnect();
-        esp_wifi_connect();
+        joshvm_esp32_wifi_connect();
+        javanotify_blufi_event(BLUFI_EVT_GOT_REQ_WIFI_CONNECT);
         break;
     case ESP_BLUFI_EVENT_REQ_DISCONNECT_FROM_AP:
-        javacall_printf("BLUFI requset wifi disconnect from AP\n");
-        esp_wifi_disconnect();
+        joshvm_esp32_wifi_disconnect();
+        javanotify_blufi_event(BLUFI_EVT_GOT_REQ_WIFI_DISCONNECT);
         break;
     case ESP_BLUFI_EVENT_REPORT_ERROR:
-        javacall_printf("BLUFI report error, error code %d\n", param->report_error.state);
         esp_blufi_send_error_info(param->report_error.state);
         break;
     case ESP_BLUFI_EVENT_GET_WIFI_STATUS: {
@@ -308,12 +478,10 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
         } else {
             esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, NULL);
         }
-        javacall_printf("BLUFI get wifi status from AP\n");
 
         break;
     }
     case ESP_BLUFI_EVENT_RECV_SLAVE_DISCONNECT_BLE:
-        javacall_printf("blufi close a gatt connection");
         esp_blufi_close(server_if, conn_id);
         break;
     case ESP_BLUFI_EVENT_DEAUTHENTICATE_STA:
@@ -323,32 +491,29 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
         memcpy(sta_config.sta.bssid, param->sta_bssid.bssid, 6);
         sta_config.sta.bssid_set = 1;
         esp_wifi_set_config(WIFI_IF_STA, &sta_config);
-        javacall_printf("Recv STA BSSID %s\n", sta_config.sta.ssid);
         break;
 	case ESP_BLUFI_EVENT_RECV_STA_SSID:
         strncpy((char *)sta_config.sta.ssid, (char *)param->sta_ssid.ssid, param->sta_ssid.ssid_len);
         sta_config.sta.ssid[param->sta_ssid.ssid_len] = '\0';
         esp_wifi_set_config(WIFI_IF_STA, &sta_config);
-        javacall_printf("Recv STA SSID %s\n", sta_config.sta.ssid);
+        javanotify_blufi_event(BLUFI_EVT_SSID);
         break;
 	case ESP_BLUFI_EVENT_RECV_STA_PASSWD:
         strncpy((char *)sta_config.sta.password, (char *)param->sta_passwd.passwd, param->sta_passwd.passwd_len);
         sta_config.sta.password[param->sta_passwd.passwd_len] = '\0';
         esp_wifi_set_config(WIFI_IF_STA, &sta_config);
-        javacall_printf("Recv STA PASSWORD %s\n", sta_config.sta.password);
+        javanotify_blufi_event(BLUFI_EVT_PASSWORD);
         break;
 	case ESP_BLUFI_EVENT_RECV_SOFTAP_SSID:
         strncpy((char *)ap_config.ap.ssid, (char *)param->softap_ssid.ssid, param->softap_ssid.ssid_len);
         ap_config.ap.ssid[param->softap_ssid.ssid_len] = '\0';
         ap_config.ap.ssid_len = param->softap_ssid.ssid_len;
         esp_wifi_set_config(WIFI_IF_AP, &ap_config);
-        javacall_printf("Recv SOFTAP SSID %s, ssid len %d\n", ap_config.ap.ssid, ap_config.ap.ssid_len);
         break;
 	case ESP_BLUFI_EVENT_RECV_SOFTAP_PASSWD:
         strncpy((char *)ap_config.ap.password, (char *)param->softap_passwd.passwd, param->softap_passwd.passwd_len);
         ap_config.ap.password[param->softap_passwd.passwd_len] = '\0';
         esp_wifi_set_config(WIFI_IF_AP, &ap_config);
-        javacall_printf("Recv SOFTAP PASSWORD %s len = %d\n", ap_config.ap.password, param->softap_passwd.passwd_len);
         break;
 	case ESP_BLUFI_EVENT_RECV_SOFTAP_MAX_CONN_NUM:
         if (param->softap_max_conn_num.max_conn_num > 4) {
@@ -356,7 +521,6 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
         }
         ap_config.ap.max_connection = param->softap_max_conn_num.max_conn_num;
         esp_wifi_set_config(WIFI_IF_AP, &ap_config);
-        javacall_printf("Recv SOFTAP MAX CONN NUM %d\n", ap_config.ap.max_connection);
         break;
 	case ESP_BLUFI_EVENT_RECV_SOFTAP_AUTH_MODE:
         if (param->softap_auth_mode.auth_mode >= WIFI_AUTH_MAX) {
@@ -364,7 +528,6 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
         }
         ap_config.ap.authmode = param->softap_auth_mode.auth_mode;
         esp_wifi_set_config(WIFI_IF_AP, &ap_config);
-        javacall_printf("Recv SOFTAP AUTH MODE %d\n", ap_config.ap.authmode);
         break;
 	case ESP_BLUFI_EVENT_RECV_SOFTAP_CHANNEL:
         if (param->softap_channel.channel > 13) {
@@ -372,7 +535,6 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
         }
         ap_config.ap.channel = param->softap_channel.channel;
         esp_wifi_set_config(WIFI_IF_AP, &ap_config);
-        javacall_printf("Recv SOFTAP CHANNEL %d\n", ap_config.ap.channel);
         break;
     case ESP_BLUFI_EVENT_GET_WIFI_LIST:{
         wifi_scan_config_t scanConf = {
@@ -385,7 +547,6 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
         break;
     }
     case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
-        javacall_printf("Recv Custom Data %d\n", param->custom_data.data_len);
         esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
 	if(custom_data_len==0){
 		int actualLen = param->custom_data.data_len;
@@ -428,27 +589,8 @@ static void example_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_
         break;
     }
 }
-void blufi_getWifiState_joshvm(){
-	 wifi_mode_t mode;
-	 esp_blufi_extra_info_t info;
-//
-	 esp_wifi_get_mode(&mode);  // 
-	 if (gl_sta_connected) {
-		 memset(&info, 0, sizeof(esp_blufi_extra_info_t));
-	     memcpy(info.sta_bssid, gl_sta_bssid, 6);// 
-	     info.sta_bssid_set = true;
-	     info.sta_ssid = gl_sta_ssid;
-	     info.sta_ssid_len = gl_sta_ssid_len;
-//	           
-	     esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, &info);
-	     javacall_printf("get wifi state");
-	  } else {
-	     esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, NULL);
-	  }
-	  BLUFI_INFO("BLUFI get wifi status from AP\n");
 
-}
-
+/** Blufi initialization code for JOSHVM*/
 void blufi_init_joshvm(void)
 {
     esp_err_t ret;
@@ -463,20 +605,15 @@ void blufi_init_joshvm(void)
     javacall_printf("nvs_flash_init return %d\n", ret);
     ESP_ERROR_CHECK( ret );
 
-    javacall_printf("Now initialise_wifi...\n");
-
     initialise_wifi();
     javacall_printf("Initialise_wifi ok\n");
 
 
     ret = esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
-    javacall_printf("esp_bt_controller_mem_release return %d\n", ret);
     ESP_ERROR_CHECK(ret);
-    javacall_printf("Now esp_bt_controller_init...\n");
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ret = esp_bt_controller_init(&bt_cfg);
-    javacall_printf("esp_bt_controller_init return %d\n", ret);
     if (ret) {
         javacall_printf("%s initialize bt controller failed: %s\n", __func__, esp_err_to_name(ret));
     }
@@ -503,39 +640,12 @@ void blufi_init_joshvm(void)
 
     javacall_printf("BLUFI VERSION %04x\n", esp_blufi_get_version());
 }
-void blufi_setBleName_joshvm(char* deviceName) {
-    int nameLen = strlen(deviceName);
-    strncpy(blufi_device_name, deviceName, 63);
-    blufi_device_name[63] = '\0';
-    javacall_printf("test %s",blufi_device_name);
-}
 
-int  blufi_getCustomData_joshvm(unsigned char* buffer,int buflen){
-	javacall_printf("in blufi_getCustomData_joshvm");
-	
-	if(custom_data_len>0){
-	    /*Data available*/
-	    if (buflen > custom_data_len) buflen = custom_data_len;
-	    memcpy(buffer,custom_buffer,buflen);
-	    custom_data_len=0;
-	}else{
-	    buflen = 0 ;
-	}
-	return buflen;
-}
-
+/** Blufi starting for JOSHVM*/
 void blufi_start_joshvm() {
 
     esp_err_t ret;
 
-    // Initialize NVS
-
-   // ret = nvs_flash_init();
-    //javacall_printf("ret is %d",ret);
-    //if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        //ESP_ERROR_CHECK(nvs_flash_erase());
-        //ret = nvs_flash_init();
-    //}
 
     ret = esp_ble_gap_register_callback(example_gap_event_handler);
     if(ret){
@@ -550,10 +660,4 @@ void blufi_start_joshvm() {
 
     esp_blufi_profile_init();
 }
-void blufi_sendMessageToPhone_joshvm(char* message){
-		javacall_printf("test");
-		int len =0;
-		len =strlen(message);
-		javacall_printf("message:%s  len %d \n",message,len);
-		esp_blufi_send_custom_data((uint8_t*)message,(uint32_t)len);
-}
+

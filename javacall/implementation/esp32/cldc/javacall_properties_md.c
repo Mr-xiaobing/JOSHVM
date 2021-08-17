@@ -10,7 +10,7 @@ short property_file_name[JAVACALL_MAX_FILE_NAME_LENGTH+1] = {'/','a','p','p','d'
 
 #define JC_PROP_BUFLEN (64)
 
-#if USE_ESP_MINI || USE_JOSH_EVB
+#if USE_ESP_MINI || USE_JOSH_EVB || ENABLE_ESP32_BLUFI
 extern int joshvm_esp32_wifi_get_state(int* state);
 extern int joshvm_esp32_get_sys_info(char* info, int size);
 #endif
@@ -23,7 +23,7 @@ javacall_result javacall_get_dynamic_property(const char* key, char** result) {
 
 	if (!strcmp(key, "wifi.state")) {
 		int state = 0;
-		#if USE_ESP_MINI || USE_JOSH_EVB
+		#if USE_ESP_MINI || USE_JOSH_EVB || ENABLE_ESP32_BLUFI
 		if (joshvm_esp32_wifi_get_state(&state) != 0) {
 			// unknown
 			state = 99;
@@ -32,7 +32,7 @@ javacall_result javacall_get_dynamic_property(const char* key, char** result) {
 		snprintf(buff, JC_PROP_BUFLEN, "%d", state);
 	} else if (!strcmp(key, "system.info")) {
 		buff[0] = 0;
-		#if USE_ESP_MINI || USE_JOSH_EVB
+		#if USE_ESP_MINI || USE_JOSH_EVB || ENABLE_ESP32_BLUFI
 		if (joshvm_esp32_get_sys_info(buff, JC_PROP_BUFLEN) != 0) {
 			buff[0] = 0;
 		}
