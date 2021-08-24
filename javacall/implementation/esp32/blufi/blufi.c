@@ -7,9 +7,9 @@ void javacall_blufi_start() {
 	blufi_start_joshvm();
 }
 
-extern void joshvm_esp32_blufi_set_ble_name(char*);
-void javacall_blufi_set_blutooth_name(char *bleName){
-	joshvm_esp32_blufi_set_ble_name(bleName);
+extern int joshvm_esp32_blufi_set_ble_name(char*);
+int javacall_blufi_set_blutooth_name(char *bleName){
+	return joshvm_esp32_blufi_set_ble_name(bleName);
 }
 
 extern int  joshvm_esp32_blufi_get_data(char*, int);

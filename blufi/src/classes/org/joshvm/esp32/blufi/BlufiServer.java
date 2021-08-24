@@ -8,44 +8,69 @@ public class BlufiServer{
 	start ble Distribution network
 */
 
-private static BlufiThread blufiThread = new BlufiThread();
-
-private static boolean started = false;
+private static BlufiThread blufiThread = null;
 
 private native static void start0();
 private native static void close0();
+
+private static BlufiEventListener blufiListener = null;
+private static WifiEventListener wifiListener = null;
+private static byte[] manufactuererDataBuffer = null;
+
+private static int deviceNameLength = 0;
+private static int manufacturerDataLength = 0;
+private static int serviceUuidLength = 2;
 
 /**
  * Start blufi server
  */
 public synchronized static void start(){
-	started = true;
+	if (blufiThread != null) {
+		return;
+	} else {
+		blufiThread = new BlufiThread();
+	}
+
+	blufiThread.setBlufiEventListener(blufiListener);
+	blufiThread.setWifiEventListener(wifiListener);
+
 	blufiThread.start();
 	start0();
 }
 
 public synchronized static void close(){
+	if (blufiThread == null) {
+		return;
+	}
+
 	close0();
 	try {
 		blufiThread.join();
 	} catch (InterruptedException e) {}
-	started = false;
+
+	blufiThread = null;
 }
 
 /**
  * Set blufi event listener
  * @param listener the listener to be set
  */
-public static void  setBlufiEventListener(BlufiEventListener listener){
-	blufiThread.setBlufiEventListener(listener);
+public synchronized static void setBlufiEventListener(BlufiEventListener listener){
+	blufiListener = listener;
+	if (blufiThread != null) {
+		blufiThread.setBlufiEventListener(listener);
+	}
 }
 
 /**
  * Set Wifi event listener
  * @param listener the listener to be set
  */
-public static void  setWifiEventListener(WifiEventListener listener){
-	blufiThread.setWifiEventListener(listener);
+public synchronized static void  setWifiEventListener(WifiEventListener listener){
+	wifiListener = listener;
+	if (blufiThread != null) {
+		blufiThread.setWifiEventListener(listener);
+	}
 }
 
 
@@ -64,7 +89,20 @@ public static void setDeviceName(String name) {
 	if (name.length() >= 64) {
 		throw new IllegalArgumentException("Name too long");
 	}
-	setDeviceName0(name);
+	deviceNameLength = setDeviceName0(name);
+}
+
+public static void setManufacturerData(byte[] manufactuererData) {
+	manufacturerDataLength = setManufacturerData0(manufactuererData);
+}
+
+public static void setServiceUuid(BluetoothUUID uuid) {
+	if (uuid.isShortType()) {
+		setServiceUuidShort32(uuid.getShortUUID());
+	} else {
+		setServiceUuidFull128(uuid.getUUID());
+	}
+	serviceUuidLength = uuid.getPDUSize();
 }
 
 /**
@@ -73,6 +111,11 @@ public static void setDeviceName(String name) {
  */
 public static boolean isBleConnected() {
 	return isBleConnected0();
+}
+
+public static int getPduSize() {
+	return deviceNameLength + manufacturerDataLength + serviceUuidLength +
+			(deviceNameLength > 0 ? 2:0) + (manufacturerDataLength > 0 ? 2:0) + 2 + 3;
 }
 
 /**
@@ -106,7 +149,9 @@ protected static WifiStationConfig getWifiStationConfig() {
 private static native int getWifiStationConfigSsid0(byte[] ssid);
 private static native int getWifiStationConfigPassword0(byte[] pwd);
 private native static void sendCustomData0(byte[] Message);
-private native static void setDeviceName0(String name);
+private native static int setDeviceName0(String name);
 private native static boolean isBleConnected0();
-
+private native static void setServiceUuidShort32(int uuid);
+private native static void setServiceUuidFull128(byte[] uuid);
+private native static int setManufacturerData0(byte[] data);
 }

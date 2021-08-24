@@ -24,6 +24,7 @@ static const char *TAG = "JOSHVM UART";
 
 static const int OPEN = 1;
 static const int CLOSE = 0;
+static const int INVALID = -1;
 
 #define UART_PIN_TYPE_TX 0
 #define UART_PIN_TYPE_RX 1
@@ -37,7 +38,7 @@ static const int CLOSE = 0;
 
 
 static uart_port_t comm_ports[SUPPORTED_UART_NUM] = {UART_NUM_0, UART_NUM_1, UART_NUM_2};
-static int comm_state[SUPPORTED_UART_NUM] = {0, 0, 0};
+static int comm_state[SUPPORTED_UART_NUM] = {INVALID, INVALID, INVALID};
 #if USE_ESP_MINI || USE_JOSH_EVB
 static int comm_pins[SUPPORTED_UART_NUM][4] = {
 								{UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE},
@@ -47,7 +48,7 @@ static int comm_pins[SUPPORTED_UART_NUM][4] = {
 #else
 static int comm_pins[SUPPORTED_UART_NUM][4] = {
 								{UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE},
-								{GPIO_NUM_4, GPIO_NUM_15, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE},
+								{GPIO_NUM_21, GPIO_NUM_22, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE},
 								{GPIO_NUM_26, GPIO_NUM_27, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE}
 							};
 #endif
@@ -66,7 +67,11 @@ static void set_comm_state(javacall_handle hPort, int state) {
 }
 
 static int is_comm_state_open(javacall_handle hPort) {
-	return comm_state[(int)hPort];
+	return (OPEN == comm_state[(int)hPort]);
+}
+
+static int is_comm_state_close(javacall_handle hPort) {
+	return (CLOSE == comm_state[(int)hPort]);
 }
 
 static QueueHandle_t* get_uart_queue(javacall_handle hPort) {
@@ -311,24 +316,34 @@ javacall_serial_open_start(const char *devName, int baudRate, unsigned int optio
 		return JAVACALL_FAIL;
 	}
 
-	port = get_uart_port(handle);
-
-	QueueHandle_t* uart_queue = get_uart_queue(handle);
+	if (!is_comm_state_close(handle)) {
 	
-    uart_param_config(port, &uart_config);
-    uart_set_pin(port, get_uart_pin(UART_PIN_TYPE_TX, handle), get_uart_pin(UART_PIN_TYPE_RX, handle),
-		         get_uart_pin(UART_PIN_TYPE_RTS, handle), get_uart_pin(UART_PIN_TYPE_CTS, handle));
+		port = get_uart_port(handle);
 
-	if (ESP_OK == uart_driver_install(port, BUF_SIZE * 2, BUF_SIZE * 2, 20, uart_queue, 0)) {
-		//Because we never delete the UART driver, uart_driver_install() may return with ESP_FAIL
-		//when the comm port to open after previous close. But we can't tell if the ESP_FAIL
-		//is caused by reopen or really fail, so we have to ignore the case that real failed 
-		//(e.g. not enough memory). The uart_event_task would not be started repeatly, only
-		//be started once, one task per port.
-		if (pdPASS != xTaskCreate(uart_event_task, "uart_event_task", 2048, (void*)handle, 12, NULL)) {
-			//If task create fail, delete the driver and return JAVACALL_FAIL
-			uart_driver_delete(port);
-			javacall_logging_printf(JAVACALL_LOGGING_ERROR, JC_SERIAL, "Serial port %d open failed for task failure\n", handle);
+		QueueHandle_t* uart_queue = get_uart_queue(handle);
+		
+		if (ESP_OK != uart_param_config(port, &uart_config)) {
+			return JAVACALL_FAIL;
+		}
+
+		if (ESP_OK != uart_set_pin(port, get_uart_pin(UART_PIN_TYPE_TX, handle), get_uart_pin(UART_PIN_TYPE_RX, handle),
+					get_uart_pin(UART_PIN_TYPE_RTS, handle), get_uart_pin(UART_PIN_TYPE_CTS, handle))) {
+			return JAVACALL_FAIL;
+		}
+
+		if (ESP_OK == uart_driver_install(port, BUF_SIZE * 2, BUF_SIZE * 2, 20, uart_queue, 0)) {
+			//Because we never delete the UART driver, uart_driver_install() may return with ESP_FAIL
+			//when the comm port to open after previous close. But we can't tell if the ESP_FAIL
+			//is caused by reopen or really fail, so we have to ignore the case that real failed 
+			//(e.g. not enough memory). The uart_event_task would not be started repeatly, only
+			//be started once, one task per port.
+			if (pdPASS != xTaskCreate(uart_event_task, "uart_event_task", 2048, (void*)handle, 12, NULL)) {
+				//If task create fail, delete the driver and return JAVACALL_FAIL
+				uart_driver_delete(port);
+				javacall_logging_printf(JAVACALL_LOGGING_ERROR, JC_SERIAL, "Serial port %d open failed for task failure\n", handle);
+				return JAVACALL_FAIL;
+			}
+		} else {
 			return JAVACALL_FAIL;
 		}
 	}
@@ -399,7 +414,7 @@ javacall_serial_close_finish(javacall_handle hPort, void *context)
     return JAVACALL_OK;
 }
 
-static javacall_result comm_read_common(uart_port_t hPort, unsigned char* buffer, int size ,int *bytesRead) {
+static javacall_result comm_read_common(uart_port_t hPort, unsigned char* buffer, int size ,int *bytesRead) {	
 	int len = uart_read_bytes(hPort, buffer, size, 0);
 	if (len == 0) {
 		*bytesRead = 0;
@@ -428,6 +443,10 @@ static javacall_result comm_read_common(uart_port_t hPort, unsigned char* buffer
 javacall_result /*OPTIONAL*/
 javacall_serial_read_start(javacall_handle hPort, unsigned char* buffer, int size ,int *bytesRead, void **pContext)
 {
+	if (!is_comm_state_open(hPort)) {
+		return JAVACALL_FAIL;
+	}
+
 	return comm_read_common(get_uart_port(hPort), buffer, size, bytesRead);
 }
 
@@ -447,6 +466,10 @@ javacall_serial_read_start(javacall_handle hPort, unsigned char* buffer, int siz
 javacall_result /*OPTIONAL*/
 javacall_serial_read_finish(javacall_handle hPort, unsigned char* buffer, int size, int *bytesRead, void *context)
 {
+	if (!is_comm_state_open(hPort)) {
+		return JAVACALL_FAIL;
+	}
+
 	return comm_read_common(get_uart_port(hPort), buffer, size, bytesRead);
 }
 
@@ -465,6 +488,10 @@ javacall_serial_read_finish(javacall_handle hPort, unsigned char* buffer, int si
 javacall_result /*OPTIONAL*/
 javacall_serial_write_start(javacall_handle hPort, unsigned char* buffer, int size, int *bytesWritten, void **pContext)
 { 
+	if (!is_comm_state_open(hPort)) {
+		return JAVACALL_FAIL;
+	}
+
 	uart_write_bytes(get_uart_port(hPort), (const char *) buffer, size);
 	*bytesWritten = size;
 	return JAVACALL_OK;

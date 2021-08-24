@@ -32,7 +32,8 @@ BLUFI_JAVA_DIR = $(ESP32_BLUFI_DIR)/src/classes
 MODULE_BLUFI_API_JAVA_FILES = \
 	${BLUFI_JAVA_DIR}/org/joshvm/esp32/blufi/BlufiServer.java \
 	${BLUFI_JAVA_DIR}/org/joshvm/esp32/blufi/BlufiEventListener.java \
-	${BLUFI_JAVA_DIR}/org/joshvm/esp32/blufi/BlufiThread.java
+	${BLUFI_JAVA_DIR}/org/joshvm/esp32/blufi/BlufiThread.java \
+	${BLUFI_JAVA_DIR}/org/joshvm/esp32/blufi/BluetoothUUID.java 
 
 # BLUFI Impl classes
 #

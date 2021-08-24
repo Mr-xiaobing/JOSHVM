@@ -3,7 +3,8 @@
 void javacall_blufi_start() {
 }
 
-void javacall_blufi_set_blutooth_name(char *bleName){
+int javacall_blufi_set_blutooth_name(char *bleName){
+	return 0;
 }
 
 int javacall_blufi_get_custom_data(char* buffer,int len){
@@ -43,4 +44,14 @@ void javacall_blufi_close() {
 
 javacall_bool javacall_blufi_is_connected() {
 	return JAVACALL_FALSE;
+}
+
+int joshvm_esp32_blufi_set_manufacturer_data(unsigned char* data, int data_len) {
+    return 0;
+}
+
+void joshvm_esp32_blufi_set_service_uuid(unsigned int uuid) {
+}
+
+void joshvm_esp32_blufi_set_service_uuid128(unsigned char* uuid) {
 }

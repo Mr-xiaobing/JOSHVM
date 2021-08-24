@@ -19,11 +19,12 @@
 	/**
 	  native org.joshvm.blufi.BlufiServer setBleName();
 	*/
-	KNIEXPORT KNI_RETURNTYPE_VOID Java_org_joshvm_esp32_blufi_BlufiServer_setDeviceName0(){
+	KNIEXPORT KNI_RETURNTYPE_INT Java_org_joshvm_esp32_blufi_BlufiServer_setDeviceName0(){
+	   int nameLength = -1;
     #if ENABLE_PCSL
 	   int nameLen;
        char bleName[64];
-	   int i;
+	   int i;	   
        jchar* temp;
 
 	   KNI_StartHandles(1);
@@ -39,12 +40,56 @@
 					bleName[i] =(char)temp[i];
 				}
 				bleName[nameLen] = 0;
-				javacall_blufi_set_blutooth_name(bleName);
+				nameLength = javacall_blufi_set_blutooth_name(bleName);
 			}
 	   }
-	   KNI_EndHandles();
+	   KNI_EndHandles();	   
+	#endif
+	   KNI_ReturnInt(nameLength);
+	}
+
+	KNIEXPORT KNI_RETURNTYPE_VOID Java_org_joshvm_esp32_blufi_BlufiServer_setServiceUuidShort32() {
+	#if ENABLE_PCSL
+	extern void joshvm_esp32_blufi_set_service_uuid(unsigned int uuid);
+		jint uuid = KNI_GetParameterAsInt(1);
+		joshvm_esp32_blufi_set_service_uuid((unsigned int)uuid);
 	#endif
 	}
+
+	KNIEXPORT KNI_RETURNTYPE_VOID Java_org_joshvm_esp32_blufi_BlufiServer_setServiceUuidFull128() {
+	#if ENABLE_PCSL
+	void joshvm_esp32_blufi_set_service_uuid128(unsigned char* uuid);
+		void* buffer;
+		KNI_StartHandles(1);
+	   	KNI_DeclareHandle(uuidObject);
+	   	KNI_GetParameterAsObject(1,uuidObject);
+		if (!KNI_IsNullHandle(uuidObject)) {
+			buffer = SNI_GetRawArrayPointer(uuidObject);
+			joshvm_esp32_blufi_set_service_uuid128((unsigned char*)buffer);
+		}
+		KNI_EndHandles();
+	#endif
+	}
+	 
+	KNIEXPORT KNI_RETURNTYPE_INT Java_org_joshvm_esp32_blufi_BlufiServer_setManufacturerData0() {
+		int dataLength = -1;
+	#if ENABLE_PCSL
+	extern int joshvm_esp32_blufi_set_manufacturer_data(unsigned char* data, int data_len);
+		void* buffer;
+		KNI_StartHandles(1);
+	   	KNI_DeclareHandle(dataObject);
+	   	KNI_GetParameterAsObject(1,dataObject);
+		if (!KNI_IsNullHandle(dataObject)) {
+			buffer = SNI_GetRawArrayPointer(dataObject);
+			dataLength = KNI_GetArrayLength(dataObject);
+			dataLength = joshvm_esp32_blufi_set_manufacturer_data((unsigned char*)buffer, dataLength);
+		}
+		KNI_EndHandles();
+	#endif
+		KNI_ReturnInt(dataLength);
+	}
+
+
 	KNIEXPORT KNI_RETURNTYPE_INT Java_org_joshvm_esp32_blufi_BlufiThread_getCustomData(){
 		int len = 0;
 		void* buffer;
@@ -139,11 +184,12 @@
 	}
 
 	KNIEXPORT KNI_RETURNTYPE_VOID Java_org_joshvm_esp32_wifi_WifiManager_setStationConfig0() {
+	#if ENABLE_PCSL
 		int len_ssid = 0;
 		int len_pwd = 0;
 		void* buffer_ssid = (void*)0;
 		void* buffer_pwd = (void*)0;
-	#if ENABLE_PCSL
+	
 		KNI_StartHandles(2);
 		KNI_DeclareHandle(ssid_buffer_byte);
 		KNI_DeclareHandle(pwd_buffer_byte);
@@ -162,7 +208,6 @@
 		javacall_wifi_set_config((char*)buffer_ssid, len_ssid, (char*)buffer_pwd, len_pwd);
 		KNI_EndHandles();
 	#endif	
-		KNI_ReturnVoid();
 	}
 
 	KNIEXPORT KNI_RETURNTYPE_INT Java_org_joshvm_esp32_blufi_BlufiServer_getWifiStationConfigSsid0() {

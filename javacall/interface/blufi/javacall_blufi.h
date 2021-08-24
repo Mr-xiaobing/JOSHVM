@@ -11,7 +11,7 @@ void javacall_blufi_start();
 
 void javacall_blufi_close();
 
-void javacall_blufi_set_blutooth_name(char*);
+int javacall_blufi_set_blutooth_name(char*);
 
 int  javacall_blufi_get_custom_data(char*,int);
 

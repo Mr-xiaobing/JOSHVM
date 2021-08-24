@@ -61,28 +61,36 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
 #define JOSHVM_WIFI_DISCONNECT_REASON_NO_AP_FOUND 6
 
 #define CUSTOM_SIZE 64
-#define BLUFI_DEVICE_NAME            "BLUFI_DEVICE"
-static char blufi_device_name[64]={'B','L','U','F','I','_','D','E','M','O','\0'};
-static uint8_t example_service_uuid128[32] = {
+#define MAX_ADV_DATA_SIZE 25
+static char blufi_device_name[MAX_ADV_DATA_SIZE + 1]={'\0'};
+static uint8_t gl_service_uuid128[32] = {
     /* LSB <--------------------------------------------------------------------------------> MSB */
     //first uuid, 16bit, [12],[13] is the value
     0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
 };
+static const uint8_t const_service_uuid128[32] = {
+    /* LSB <--------------------------------------------------------------------------------> MSB */
+    //first uuid, 16bit, [12],[13] is the value
+    0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
+};
+/* manufacture data*/
+static uint8_t gl_manufacturer_data[MAX_ADV_DATA_SIZE] = {'\0'};
+
 static int custom_data_len = 0;
 //static uint8_t test_manufacturer[TEST_MANUFACTURER_DATA_LEN] =  {0x12, 0x23, 0x45, 0x56};
-static esp_ble_adv_data_t example_adv_data = {
+static esp_ble_adv_data_t ble_adv_data = {
     .set_scan_rsp = false,
-    .include_name = true,
-    .include_txpower = true,
-    .min_interval = 0x0006, //slave connection min interval, Time = min_interval * 1.25 msec
-    .max_interval = 0x0010, //slave connection max interval, Time = max_interval * 1.25 msec
+    .include_name = false,
+    .include_txpower = false,
+    .min_interval = 0, //slave connection min interval, Time = min_interval * 1.25 msec
+    .max_interval = 0, //slave connection max interval, Time = max_interval * 1.25 msec
     .appearance = 0x00,
     .manufacturer_len = 0,
-    .p_manufacturer_data =  NULL,
+    .p_manufacturer_data =  gl_manufacturer_data,
     .service_data_len = 0,
     .p_service_data = NULL,
     .service_uuid_len = 16,
-    .p_service_uuid = example_service_uuid128,
+    .p_service_uuid = gl_service_uuid128,
     .flag = 0x6,
 };
 
@@ -137,13 +145,34 @@ static uint16_t conn_id;
 /* flag auto reconnect setting*/
 int auto_reconnect = 0;
 
-
 //
 // JOSHVM supply code
 //
-void joshvm_esp32_blufi_set_ble_name(char* deviceName) {
-    strncpy(blufi_device_name, deviceName, 63);
-    blufi_device_name[63] = '\0';
+int joshvm_esp32_blufi_set_ble_name(char* deviceName) {
+    strncpy(blufi_device_name, deviceName, MAX_ADV_DATA_SIZE);
+    blufi_device_name[MAX_ADV_DATA_SIZE] = '\0';
+    return strlen(blufi_device_name);
+}
+
+int joshvm_esp32_blufi_set_manufacturer_data(uint8_t* data, int data_len) {
+    if (data_len > MAX_ADV_DATA_SIZE) {
+        data_len = MAX_ADV_DATA_SIZE;
+    }
+    memcpy(gl_manufacturer_data, data, data_len);
+    ble_adv_data.manufacturer_len = data_len;
+    return data_len;
+}
+
+void joshvm_esp32_blufi_set_service_uuid(uint32_t uuid) {
+    memcpy(gl_service_uuid128, const_service_uuid128, sizeof(gl_service_uuid128));
+    gl_service_uuid128[12] = uuid & 0xFF;
+    gl_service_uuid128[13] = (uuid >> 8) & 0xFF;
+    gl_service_uuid128[14] = (uuid >> 16) & 0xFF;
+    gl_service_uuid128[15] = (uuid >> 24) & 0xFF;
+}
+
+void joshvm_esp32_blufi_set_service_uuid128(uint8_t* uuid) {
+    memcpy(gl_service_uuid128, uuid, sizeof(gl_service_uuid128));
 }
 
 int  joshvm_esp32_blufi_get_data(unsigned char* buffer,int buflen){
@@ -430,7 +459,13 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     switch (event) {
     case ESP_BLUFI_EVENT_INIT_FINISH:
         rets= esp_ble_gap_set_device_name(blufi_device_name);
-        esp_ble_gap_config_adv_data(&example_adv_data);
+        if (strlen(blufi_device_name) > 0) {
+            ble_adv_data.include_name = true;
+        } else {
+            ble_adv_data.include_name = false;
+        }
+        javacall_printf("manufacturer_len=%d\n", ble_adv_data.manufacturer_len);
+        esp_ble_gap_config_adv_data(&ble_adv_data);
         break;
     case ESP_BLUFI_EVENT_DEINIT_FINISH:
         break;
@@ -548,13 +583,14 @@ static void example_event_callback(esp_blufi_cb_event_t event, esp_blufi_cb_para
     }
     case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
         esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
-	if(custom_data_len==0){
-		int actualLen = param->custom_data.data_len;
-		if (actualLen > CUSTOM_SIZE) actualLen = CUSTOM_SIZE;
-		memcpy(custom_buffer,param->custom_data.data,actualLen);
-		custom_data_len = actualLen;
-		javanotify_blufi_event(BLUFI_EVT_CUSTOMDATA);
-	}
+        if(custom_data_len==0){
+            int actualLen = param->custom_data.data_len;
+            if (actualLen > CUSTOM_SIZE) actualLen = CUSTOM_SIZE;
+            memcpy(custom_buffer,param->custom_data.data,actualLen);
+            custom_data_len = actualLen;
+            
+        }
+        javanotify_blufi_event(BLUFI_EVT_CUSTOMDATA);
         break;
 	case ESP_BLUFI_EVENT_RECV_USERNAME:
         /* Not handle currently */
