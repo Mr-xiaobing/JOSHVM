@@ -16,7 +16,5 @@
 # 
 # Please visit www.joshvm.org if you need additional information or
 # have any questions.
-JSR_JAVA_FILES_DIR += $(JAMS_DIR)/src/classes/share
-JSR_JAVA_FILES_DIR += $(JAMS_DIR)/src/classes/comm
-JSR_JAVA_FILES_DIR += $(JAMS_DIR)/src/classes/network
+JSR_JAVA_FILES_DIR += $(JAMS_DIR)/src/classes/
   

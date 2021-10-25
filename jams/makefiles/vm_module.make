@@ -16,29 +16,3 @@
 # 
 # Please visit www.joshvm.org if you need additional information or
 # have any questions.
-JAMS_SRC_DIR = $(JAMS_DIR)/src
-
-JSR_EXT_INCLUDE_DIRS += 
-
-ROMGEN_CFG_FILES += ${JAMS_SRC_DIR}/config/jams_rom.cfg 
-  
-ifeq ($(IsTarget), true)
-os_platform = javacall
-else
-os_platform = stub
-endif
-  
-ifeq ($(compiler), visCPP)
-JAMS_Obj_Files = jams_kni_$(os_platform).obj
-	
-jams_kni_$(os_platform).obj: $(JAMS_SRC_DIR)/native/jams_kni_$(os_platform).c
-	$(BUILD_C_TARGET_NO_PCH)
-
-else
-
-JAMS_Obj_Files = jams_kni_$(os_platform).o
-
-jams_kni_$(os_platform).o: $(JAMS_SRC_DIR)/native/jams_kni_$(os_platform).c
-	$(BUILD_C_TARGET)
-
-endif
