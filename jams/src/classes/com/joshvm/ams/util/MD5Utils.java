@@ -6,6 +6,11 @@ import com.joshvm.ams.encoder.Base64;
 import com.joshvm.ams.encoder.Hex;
 import com.joshvm.ams.encoder.MD5Digest;
 
+/**
+ * 签名工具类
+ * @author 86188
+ *
+ */
 public class MD5Utils {
 
 	/**

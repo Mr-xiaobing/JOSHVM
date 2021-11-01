@@ -5,8 +5,8 @@ import java.io.InputStream;
 
 import javax.microedition.io.Connector;
 import javax.microedition.io.StreamConnection;
-import javax.microedition.io.file.FileConnection;
 
+import org.joshvm.esp32.blufi.BlufiServer;
 import org.json.me.JSONArray;
 import org.json.me.JSONObject;
 
@@ -16,14 +16,16 @@ import com.joshvm.ams.http.adapter.CheckAppListAdapter;
 import com.joshvm.ams.http.callback.AppCheckCallback;
 import com.joshvm.ams.network.ConfigerWifiCallBack;
 import com.joshvm.ams.network.NetManager;
-
+import com.sun.cldc.io.j2me.file.Protocol;
 import com.sun.cldc.isolate.*;
+import org.joshvm.security.internal.*;
 
 public class Jams implements AppManagerCommandListener {
 	private static final String APPMANAGER_COMM_PORT = "COM0";
 	private static final int APPMANAGER_TYPE_COMM = 1;
 	private static final int APPMANAGER_TYPE_NETWORK = 2;
-	private static final boolean ifConnectAtStart = false;
+	public static final String PRODUCT = "1";
+	public static final String TEST = "2";
 	private static Isolate runningIsolate;
 	private static String stoppingUniqueID;
 
@@ -33,10 +35,25 @@ public class Jams implements AppManagerCommandListener {
 	public static final String BLUFI_CMD_DIVISION = "&&";
 	// wifi配置
 	public static final String WIFI_INFO = "wifiInfo.txt";
-	// 蓝牙名
-	public static final String BLU_NAME = "bluName.txt";
+	// 环境类型&&蓝牙名1：正式环境 2：测试环境 &&MiaoBSM：血糖仪 MiaoBPM：血压计 例如：1&&MiaoBPM（正式环境血压计）
+	public static final String DEVICE_INFO = "deviceInfo.txt";
 	// 蓝牙mac地址
 	public static String DEVICE_MAC_ADDRESS = "";
+	
+	/**
+	 * Inner class to request security token from SecurityInitializer.
+	 * SecurityInitializer should be able to check this inner class name.
+	 */
+	static private class SecurityTrusted implements ImplicitlyTrustedClass {
+	}
+
+	/** This class has a different security domain than the MIDlet suite */
+	private static SecurityToken securityToken = SecurityInitializer.requestToken(new SecurityTrusted());
+
+
+	public static SecurityToken getSecurityToken() {
+		return securityToken;
+	}
 
 	private Jams(int type) {
 		if (type == APPMANAGER_TYPE_COMM) {
@@ -51,16 +68,16 @@ public class Jams implements AppManagerCommandListener {
 
 	private Installer getInstaller(String installSourceURL) {
 		if (installSourceURL.startsWith("file://")) {
-			return new FileInstaller(installSourceURL);
+			return new FileInstaller(securityToken,installSourceURL);
 		} else if (installSourceURL.startsWith("comm:")) {
-			return new CommInstaller(installSourceURL);
+			return new CommInstaller(securityToken,installSourceURL);
 		} else if (installSourceURL.startsWith("socket://")) {
-			return new NetworkInstaller(installSourceURL.substring(9));
+			return new NetworkInstaller(securityToken,installSourceURL.substring(9));
 		} else {
 			return null;
 		}
 	}
-
+	
 	public static void main(String argv[]) {
 
 		// Try Comm App Manager
@@ -115,7 +132,7 @@ public class Jams implements AppManagerCommandListener {
 													String mainClass = jsonObjectInstall.getString("mainName");
 													int size = jsonObjectInstall.getInt("size");
 
-													Installer inst = new NetworkInstaller(url);
+													Installer inst = new NetworkInstaller(securityToken,url);
 
 													try {
 														inst.install(md5, mainClass, size, true);
@@ -140,7 +157,7 @@ public class Jams implements AppManagerCommandListener {
 													String appNameUpdate = jsonObjectUpdate.getString("updateMd5");
 													String mainClass = jsonObjectUpdate.getString("mainName");
 													int size = jsonObjectUpdate.getInt("size");
-													Installer inst = new NetworkInstaller(url);
+													Installer inst = new NetworkInstaller(securityToken,url);
 
 													try {
 														inst.install(appNameUpdate, mainClass, size, true);
@@ -224,10 +241,10 @@ public class Jams implements AppManagerCommandListener {
 			return;
 		}
 
-		FileConnection fconn = null;
-		String filename = "file:///" + Jams.getAppdbRoot() + appName;
+		Protocol fconn = new Protocol();
+		String filename = "//" + Jams.getAppdbRoot() + appName;
 		try {
-			fconn = (FileConnection) Connector.open(filename + ".jar");
+			fconn.openPrim(securityToken, filename + ".jar", Connector.READ_WRITE, false);
 			fconn.delete();
 			appman.response(uniqueID, AppManager.APPMAN_RESPCODE_DELETEOK);
 		} catch (IOException ioe) {
@@ -249,7 +266,8 @@ public class Jams implements AppManagerCommandListener {
 		fconn = null;
 
 		try {
-			fconn = (FileConnection) Connector.open(filename + ".aut");
+			fconn = new Protocol();
+			fconn.openPrim(securityToken, filename + ".aut", Connector.READ_WRITE, false);
 			if (fconn.exists()) {
 				fconn.delete();
 			}
@@ -318,10 +336,11 @@ public class Jams implements AppManagerCommandListener {
 	}
 
 	synchronized public void commandListInstalledApp(String uniqueID) {
-		String filepath = "file:///" + Jams.getAppdbRoot();
+		String filepath = "//" + Jams.getAppdbRoot();
 		StringBuffer applist = new StringBuffer();
 		try {
-			FileConnection fconn = (FileConnection) Connector.open(filepath);
+			Protocol fconn = new Protocol();
+			fconn.openPrim(securityToken, filepath, Connector.READ_WRITE, false);
 			java.util.Enumeration em = fconn.list();
 			System.out.println("File open path:" + filepath);
 
@@ -404,6 +423,7 @@ public class Jams implements AppManagerCommandListener {
 							new String[] { getAppdbNativeRoot() + appName + ".jar" });
 					System.out.println("New Isolate: " + appName + " about to start");
 					iso.start();
+					BlufiServer.close();
 					System.out.println("New Isolate: " + appName + " started, waiting for exit...");
 					try {
 						appman.response(uniqueID, AppManager.APPMAN_RESPCODE_APPSTARTOK);
@@ -443,12 +463,19 @@ public class Jams implements AppManagerCommandListener {
 		}).start();
 	}
 
+	/**
+	 * 获取运行地址
+	 * @return
+	 */
 	public static String getAppdbNativeRoot() {
 		String path = appman.getAppdbNativeRoot();
 		System.out.println("appdb_native_root=" + path);
 		return path;
 	}
-
+	/**
+	 * 获取下载地址
+	 * @return
+	 */
 	public static String getAppdbRoot() {
 		String path = appman.getAppdbRoot();
 		System.out.println("appdb_root=" + path);
@@ -463,16 +490,22 @@ public class Jams implements AppManagerCommandListener {
 		return null;
 	}
 
+	/**
+	 * 自动运行
+	 * @return
+	 */
 	private static void autoStartAll() {
-		String filepath = "file:///" + Jams.getAppdbRoot();
+		String filepath = "//" + Jams.getAppdbRoot();
 		System.out.println("Try to find auto-start application...");
 		try {
-			FileConnection fconn = (FileConnection) Connector.open(filepath);
+			Protocol fconn = new Protocol();
+			fconn.openPrim(securityToken, filepath, Connector.READ_WRITE, false);
 			java.util.Enumeration em = fconn.list();
 			while (em.hasMoreElements()) {
 				String filename = (String) em.nextElement();
 				if (filename.endsWith(".aut")) {
-					FileConnection asfile = (FileConnection) Connector.open(filepath + filename);
+					Protocol asfile = new Protocol();
+					asfile.openPrim(securityToken, filepath + filename, Connector.READ_WRITE, false);
 
 					String appname = filename.substring(0, filename.length() - 4);
 					if (!isInstalled(appname)) {
@@ -499,9 +532,10 @@ public class Jams implements AppManagerCommandListener {
 
 	private static boolean isInstalled(String appname) {
 		boolean result;
-		String filepath = "file:///" + Jams.getAppdbRoot() + appname + ".jar";
+		String filepath = "//" + Jams.getAppdbRoot() + appname + ".jar";
 		try {
-			FileConnection fconn = (FileConnection) Connector.open(filepath);
+			Protocol fconn = new Protocol();
+			fconn.openPrim(securityToken, filepath, Connector.READ_WRITE, false);
 			if (fconn.exists()) {
 				result = true;
 			} else {
@@ -518,9 +552,10 @@ public class Jams implements AppManagerCommandListener {
 
 	private static boolean isAutostart(String appname) {
 		boolean result;
-		String filepath = "file:///" + Jams.getAppdbRoot() + appname + ".aut";
+		String filepath = "//" + Jams.getAppdbRoot() + appname + ".aut";
 		try {
-			FileConnection fconn = (FileConnection) Connector.open(filepath);
+			Protocol fconn = new Protocol();
+			fconn.openPrim(securityToken, filepath, Connector.READ_WRITE, false);
 			if (fconn.exists()) {
 				result = true;
 			} else {

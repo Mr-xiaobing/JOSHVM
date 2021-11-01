@@ -1,7 +1,7 @@
 package com.joshvm.ams.timeout;
 
 /**
- * 超时处理
+ * 超时类
  */
 public class Timeouts implements Runnable {
 

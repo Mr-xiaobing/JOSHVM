@@ -1,10 +1,18 @@
 #include "javacall_blufi.h"
+#include "javacall_logging.h"
 
 #include <esp_wifi_types.h>
 
+static int blufi_started = 0;
+
 extern void blufi_start_joshvm();
 void javacall_blufi_start() {
-	blufi_start_joshvm();
+	if (blufi_started == 0) {
+		blufi_start_joshvm();
+		blufi_started = 1;
+	} else {
+		javacall_logging_printf(JAVACALL_LOGGING_WARNING, JC_PROTOCOL, "Blufi already started\n");
+	}
 }
 
 extern int joshvm_esp32_blufi_set_ble_name(char*);
@@ -81,6 +89,7 @@ void javacall_wifi_disconnect_from_AP() {
 extern void joshvm_esp32_blufi_close();
 void javacall_blufi_close() {	
 	joshvm_esp32_blufi_close();
+	blufi_started = 0;
 }
 
 extern int joshvm_esp32_blufi_is_connected();

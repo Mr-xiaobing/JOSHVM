@@ -5,11 +5,12 @@ import java.io.InputStream;
 
 import javax.microedition.io.Connector;
 import javax.microedition.io.file.FileConnection;
+import org.joshvm.security.internal.*;
 
 
 class FileInstaller extends Installer {
-	public FileInstaller(String installSource) {
-		super(installSource);
+	public FileInstaller(SecurityToken securityToken,String installSource) {
+		super(securityToken,installSource);
 	}
 	
 	protected  InputStream getSourceStream() throws IOException {

@@ -12,7 +12,11 @@ import com.joshvm.ams.file.FileManager;
 import com.joshvm.ams.timeout.TimeOutCallback;
 import com.joshvm.ams.timeout.Timeouts;
 import com.joshvm.ams.util.Utils;
-
+/**
+ * 配网配蓝牙管理类
+ * @author 86188
+ *
+ */
 public class NetManager {
 
 	private static final int CONFIGET_FAIL = 1;
@@ -28,7 +32,7 @@ public class NetManager {
 	 */
 	public static void blufiConfiger(final ConfigerWifiCallBack configerWifiCallBack) {
 
-		System.out.println("==setWifiEventListener====");
+		System.out.println("==jams====setWifiEventListener====");
 
 		timeouts = new Timeouts();
 		timeouts.setOutTime(10);
@@ -39,40 +43,6 @@ public class NetManager {
 			}
 		});
 		timeouts.startTimer();
-		
-		BlufiServer.setBlufiEventListener(new BlufiEventListener() {
-
-			public void onCustomDataReceive(byte[] data) {
-
-				System.out.println("===onCustomDataReceive====" + data.length);
-
-			}
-
-			public void onGotWifiPassword(byte[] password) {
-
-			}
-
-			public void onGotWifiSsid(byte[] ssid) {
-			}
-
-			public void onReqWifiConnect() {
-
-			}
-
-			public void onReqWifiDisconnect() {
-			}
-
-			public void onBleConnect() {
-
-				System.out.println("Blufi Connect:" + Jams.DEVICE_MAC_ADDRESS);
-
-			}
-
-			public void onBleDisconnect() {
-				System.out.println("Blufi Disconnect:" + Jams.DEVICE_MAC_ADDRESS);
-
-			}
-		});
 
 		BlufiServer.setWifiEventListener(new WifiEventListener() {
 
@@ -127,22 +97,28 @@ public class NetManager {
 			String bluMac = (Integer.toString(bt_addr[4] & 0xff, 16).charAt(1)
 					+ Integer.toString(bt_addr[5] & 0xff, 16)).toUpperCase();
 
-			System.out.println("===========================" + bluMac);
+			String deviceInfo = FileManager.getFileData(Jams.DEVICE_INFO);
 
-			String bluName = FileManager.getBluName(Jams.BLU_NAME);
-
-			if (bluName == null || bluName.equals("")) {
+			if (deviceInfo == null && deviceInfo.equals("")) {
 
 				throw new Exception("UNKNOW DEVICE TYPE");
 
 			}
 
+			String[] deviceInfoArray = Utils.slipString(deviceInfo, Jams.BLUFI_CMD_DIVISION, 2);
+
+			if (deviceInfoArray.length < 2) {
+
+				throw new Exception("UNKNOW DEVICE TYPE");
+			}
+
+			String bluName = deviceInfoArray[1];
+			BlufiServer.setDeviceName(bluName + " " + bluMac);
+			
 			// 设置设备蓝牙名称
 			if (bluName.equals("MiaoBPM")) {
-				BlufiServer.setDeviceName("MiaoBPM " + bluMac);
 				BlufiServer.setServiceUuid(new BluetoothUUID(0x1810));
 			} else if (bluName.equals("MiaoBSM")) {
-				BlufiServer.setDeviceName("MiaoBSM " + bluMac);
 				BlufiServer.setServiceUuid(new BluetoothUUID(0x1808));
 			}
 			BlufiServer.setManufacturerData(bt_addr);
@@ -153,7 +129,6 @@ public class NetManager {
 			} else {
 				throw new Exception("PDU size too large");
 			}
-			BlufiServer.start();
 
 			String wifiInfo = FileManager.checkFile(Jams.WIFI_INFO);
 

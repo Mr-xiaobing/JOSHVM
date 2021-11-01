@@ -681,7 +681,11 @@ void blufi_init_joshvm(void)
 void blufi_start_joshvm() {
 
     esp_err_t ret;
+    static int profile_initialized = 0;
 
+    if (profile_initialized) {
+        return;
+    }
 
     ret = esp_ble_gap_register_callback(example_gap_event_handler);
     if(ret){
@@ -695,5 +699,6 @@ void blufi_start_joshvm() {
     }
 
     esp_blufi_profile_init();
+    profile_initialized = 1;
 }
 

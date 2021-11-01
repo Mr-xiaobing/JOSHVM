@@ -3,36 +3,27 @@ package org.joshvm.ams.jams;
 import java.io.IOException;
 
 public class NetworkAppManager implements AppManager {
-	
-//	public String getAppdbNativeRoot() {
-//		String path = System.getProperty("appdb_native_root_secure");
-//		
-//		if (path == null) {
-//			System.out.println("getAppdbNativeRoot use default");
-//			path = new String("C:\\java\\appdb\\secure\\");
-//		}
-//		return path;
-//	}
-//
-//	public String getAppdbRoot() {		
-//		String path = System.getProperty("appdb_root_secure");
-//		if (path == null) {
-//			System.out.println("getAppdbRoot use default");
-//			path = new String("windows_logical_drive_C:/java/appdb/secure/");
-//		}		
-//		return path;
-//	}
+
 	public String getAppdbNativeRoot() {
-		return "/userdata/";
+		String path = System.getProperty("org.joshvm.ams.appdbpath.native_root.secure");
+
+		if (path == null) {
+			path = new String("C:\\java\\internal\\appdb\\secure\\");
+		}
+		return path;
 	}
-	
-	public String getAppdbRoot() {		
-		return "root/";
+
+	public String getAppdbRoot() {
+		String path = System.getProperty("org.joshvm.ams.appdbpath.root.secure");
+		if (path == null) {
+			path = new String("/internal/appdb/secure/");
+		}
+		return path;
 	}
 
 	public void connect() throws IOException {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	public boolean isConnected() {
@@ -52,17 +43,17 @@ public class NetworkAppManager implements AppManager {
 
 	public void disconnect() throws IOException {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	public void response(String uniqueid, int code) throws IOException {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	public void response(String uniqueid, int code, String body) throws IOException {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	public AMSMessage receiveMessage() throws IOException, WrongMessageFormatException {
@@ -72,7 +63,7 @@ public class NetworkAppManager implements AppManager {
 
 	public void setCommandListener(AppManagerCommandListener listener) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	public AppManagerCommandListener getCommandListener() {
@@ -82,8 +73,7 @@ public class NetworkAppManager implements AppManager {
 
 	public void notifyConnected() {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 }
-

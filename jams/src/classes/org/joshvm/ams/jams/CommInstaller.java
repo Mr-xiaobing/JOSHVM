@@ -8,12 +8,13 @@ import javax.microedition.io.Connector;
 import javax.microedition.io.StreamConnection;
 
 import org.joshvm.ams.consoleams.ConsoleConnection;
+import org.joshvm.security.internal.*;
 
 class CommInstaller extends Installer {
 	protected InputStream server_is;
 
-	public CommInstaller(String installSource) {
-		super(installSource);
+	public CommInstaller(SecurityToken securityToken,String installSource) {
+		super(securityToken,installSource);
 		server_is = null;
 	}
 
@@ -45,7 +46,7 @@ class CommInstaller extends Installer {
 			if (server_is != null) {
 				server_is.close();
 			}
-			if (sc != null) {
+			if (sc != null) { 
 				sc.close();
 			}
 		}

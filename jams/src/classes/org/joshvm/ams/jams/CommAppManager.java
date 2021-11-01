@@ -38,32 +38,23 @@ public class CommAppManager extends org.joshvm.ams.consoleams.ams implements App
 	public void notifyConnected() {
 	}
 	
-//	public String getAppdbNativeRoot() {
-//		String path = System.getProperty("appdb_native_root_unsecure");
-//		
-//		if (path == null) {
-//			System.out.println("getAppdbNativeRoot use default");
-//			path = new String("C:\\java\\appdb\\unsecure\\");
-//		}
-//		return path;
-//	}
-//
-//	public String getAppdbRoot() {		
-//		String path = System.getProperty("appdb_root_unsecure");
-//		if (path == null) {
-//			System.out.println("getAppdbRoot use default");
-//			path = new String("windows_logical_drive_C:/java/appdb/unsecure/");
-//		}
-//		return path;
-//	}	
-	
 	public String getAppdbNativeRoot() {
-		return "/userdata/";
+		String path = System.getProperty("org.joshvm.ams.appdbpath.native_root.unsecure");
+
+		if (path == null) {
+			path = new String("C:\\java\\internal\\appdb\\unsecure\\");
+		}
+		return path;
+	}
+
+	public String getAppdbRoot() {
+		String path = System.getProperty("org.joshvm.ams.appdbpath.root.unsecure");
+		if (path == null) {
+			path = new String("/internal/appdb/unsecure/");
+		}
+		return path;
 	}
 	
-	public String getAppdbRoot() {		
-		return "root/";
-	}
 	public void response(String uniqueid, int code) throws IOException {
 		response(uniqueid, code, null);
 	}

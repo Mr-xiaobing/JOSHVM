@@ -7,6 +7,8 @@ import javax.microedition.io.Connector;
 import javax.microedition.io.file.FileConnection;
 
 import org.joshvm.ams.jams.Jams;
+import com.sun.cldc.io.j2me.file.Protocol;
+import org.joshvm.security.internal.*;
 
 /**
  * 文件读写Manager
@@ -61,30 +63,31 @@ public class FileManager {
 		}
 		return "";
 	}
-	
+
 	/**
 	 * 获取蓝牙名字前缀
 	 * 
 	 * @param appname
 	 * @return
 	 */
-	public static String getBluName(String fileName) {
-		
-		String filepathName = "file:///" + Jams.getAppdbRoot() + fileName;
-		
+	public static String getFileData(String fileName) {
+
+		String filepathName = "//" + Jams.getAppdbRoot() + fileName;
+
 		try {
-			// 读File
-			fileConnection = (FileConnection) Connector.open(filepathName);
 
-			if (!fileConnection.exists()) {
+			Protocol fconn = new Protocol();
+			fconn.openPrim(Jams.getSecurityToken(), filepathName, Connector.READ_WRITE, false);
 
-				fileConnection.close();
+			if (!fconn.exists()) {
+
+				fconn.close();
 
 				System.out.println("==========File No Exist...");
 				return "";
 			}
 
-			inputStream = fileConnection.openInputStream();
+			inputStream = fconn.openInputStream();
 			byte[] buffer = new byte[256];
 			int readLen = 0;
 			StringBuffer stringBuffer = new StringBuffer();
@@ -97,8 +100,8 @@ public class FileManager {
 
 			inputStream.close();
 			inputStream = null;
-			fileConnection.close();
-			fileConnection = null;
+			fconn.close();
+			fconn = null;
 
 			return stringBuffer.toString();
 
@@ -106,20 +109,22 @@ public class FileManager {
 			e.printStackTrace();
 		}
 		return "";
-		
+
 	}
 
 	/**
-	 * 查看是否
+	 * 查看是否安装
 	 * 
 	 * @param appname
 	 * @return
 	 */
 	public static boolean isInstalled(String appname) {
 		boolean result;
-		String filepath = "file:///" + Jams.getAppdbRoot() + appname + ".jar";
+		String filepath = "//" + Jams.getAppdbRoot() + appname + ".jar";
 		try {
-			FileConnection fconn = (FileConnection) Connector.open(filepath);
+			Protocol fconn = new Protocol();
+			fconn.openPrim(Jams.getSecurityToken(), filepath, Connector.READ_WRITE, false);
+
 			if (fconn.exists()) {
 				result = true;
 			} else {
@@ -141,19 +146,19 @@ public class FileManager {
 	 */
 	public static String getFilesMD5() {
 
-		String filepath = "file:///" + Jams.getAppdbRoot();
+		String filepath = "//" + Jams.getAppdbRoot();
 
 		StringBuffer stringBuffer = new StringBuffer();
 
 		try {
-			FileConnection fconn = (FileConnection) Connector.open(filepath);
+			Protocol fconn = new Protocol();
+			fconn.openPrim(Jams.getSecurityToken(), filepath, Connector.READ_WRITE, false);
 			java.util.Enumeration em = fconn.list();
 
 			while (em.hasMoreElements()) {
 				String filename = (String) em.nextElement();
 				if (filename.endsWith(".jar")) {
 
-					System.out.println("===========" + filename);
 					stringBuffer.append(filename.substring(0, filename.length() - 4) + Jams.BLUFI_CMD_DIVISION);
 				}
 			}
@@ -180,10 +185,11 @@ public class FileManager {
 	 */
 	public static void getFilesName() {
 
-		String filepath = "file:///" + Jams.getAppdbRoot();
+		String filepath = "//" + Jams.getAppdbRoot();
 
 		try {
-			FileConnection fconn = (FileConnection) Connector.open(filepath);
+			Protocol fconn = new Protocol();
+			fconn.openPrim(Jams.getSecurityToken(), filepath, Connector.READ_WRITE, false);
 			java.util.Enumeration em = fconn.list();
 
 			while (em.hasMoreElements()) {
@@ -206,11 +212,12 @@ public class FileManager {
 	 * @param appName
 	 */
 	public static void removeApp(String appName) {
-
-		FileConnection fconn = null;
-		String filename = "file:///" + Jams.getAppdbRoot() + appName;
+		Protocol fconn = null;
+		String filename = "//" + Jams.getAppdbRoot() + appName;
 		try {
-			fconn = (FileConnection) Connector.open(filename + ".jar");
+			fconn = new Protocol();
+			fconn.openPrim(Jams.getSecurityToken(), filename + ".jar", Connector.READ_WRITE, false);
+
 			fconn.delete();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -218,7 +225,7 @@ public class FileManager {
 			if (fconn != null) {
 				try {
 					fconn.close();
-				} catch (IOException ex) { 
+				} catch (IOException ex) {
 					ex.printStackTrace();
 				}
 			}
@@ -227,7 +234,9 @@ public class FileManager {
 		fconn = null;
 
 		try {
-			fconn = (FileConnection) Connector.open(filename + ".aut");
+
+			fconn = new Protocol();
+			fconn.openPrim(Jams.getSecurityToken(), filename + ".aut", Connector.READ_WRITE, false);
 			if (fconn.exists()) {
 				fconn.delete();
 			}
@@ -241,5 +250,5 @@ public class FileManager {
 			}
 		}
 	}
-	
+
 }

@@ -36,8 +36,6 @@ public class HttpClient {
 	 */
 	private HttpClient(Builder builder) {
 
-		System.out.println("===HttpClient==" + builder.requestMethod);
-
 		url = builder.url;
 		requestMethod = builder.requestMethod;
 		contentType = builder.contentType;
@@ -81,7 +79,6 @@ public class HttpClient {
 			outputStream.flush();
 			// 获取响应HttpCode 200为成功
 			int httpCode = connection.getResponseCode();
-			System.out.println("ResponseHttpCode ==== : " + httpCode);
 			if (httpCode != HttpConnection.HTTP_OK) { // 请求失败
 				
 				if (timeouts.isTiming()) {
@@ -97,7 +94,6 @@ public class HttpClient {
 				byte[] data = new byte[1024];
 				int readLen = inputStream.read(data);
 				String response = new String(data, 0, readLen);
-				System.out.println(timeouts.isTiming()+"ResponseMessage ==== : " + response);
 				
 				if (timeouts.isTiming()) {
 					timeouts.dismiss();

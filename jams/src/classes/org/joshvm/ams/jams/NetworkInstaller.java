@@ -2,33 +2,25 @@ package org.joshvm.ams.jams;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 
 import javax.microedition.io.Connector;
 import javax.microedition.io.HttpConnection;
-import javax.microedition.io.StreamConnection;
+import javax.microedition.io.file.FileConnection;
+import org.joshvm.security.internal.*;
+import com.sun.cldc.io.j2me.file.Protocol;
+
+import com.joshvm.ams.file.FileManager;
 
 public class NetworkInstaller extends Installer {
-	protected String hostname;
-	protected String filePathToGet;
 	private InputStream server_is;
+	private SecurityToken securityToken;
 
-	public NetworkInstaller(String installSource) {
-		super(installSource);
+	public NetworkInstaller(SecurityToken securityToken,String installSource) {
+		super(securityToken,installSource);
 
 		this.installSource = installSource;
+		this.securityToken = securityToken;
 
-		String install = installSource.substring(7);
-		int pos = install.indexOf("/");
-		if (pos == -1) {
-			hostname = install;
-			filePathToGet = "";
-		} else {
-
-			hostname = install.substring(0, pos);
-			filePathToGet = install.substring(pos);
-
-		}
 	}
 
 	protected InputStream getSourceStream() {
@@ -61,57 +53,43 @@ public class NetworkInstaller extends Installer {
 			}
 		}
 
-		// verify(appName);
+		verify(appName, length);
 	}
 
-	private void verify(String appName) throws IOException, InstallVerifyErrorException {
-		StreamConnection sc = null;
-		System.out.println("verify...");
+	private void verify(String appName, int length) throws IOException, InstallVerifyErrorException {
+
 		try {
-			String host = "socket://" + hostname;
-			System.out.println("Connecting to " + host);
-			sc = (StreamConnection) Connector.open(host);
-			System.out.println("Connected.");
-			String request = "MD5 " + filePathToGet + "\n";
-			OutputStream os = sc.openOutputStream();
-			os.write(request.getBytes());
-			os.close();
+			// 读File
+			Protocol fileConnection = new Protocol();
+			fileConnection.openPrim(securityToken, "//" + Jams.getAppdbRoot() + appName + ".jar", Connector.READ_WRITE, false);
 
-			InputStream is = sc.openInputStream();
-			String reply = readline(is);
-			System.out.println("verify: reply=" + reply);
-			is.close();
-			if (reply.startsWith("MD5=")) {
-				reply = reply.substring(4);
-				int md5 = Integer.parseInt(reply);
-				// int digest = MD5.calc(installDest);
-				// if (digest != md5) {
-				// throw new InstallVerifyErrorException("Wrong MD5: "+digest+"
-				// does not match expected MD5 value "+md5);
-				// }
-			}
-		} catch (NumberFormatException nfe) {
-			throw new InstallVerifyErrorException("Invalid server response");
-		} finally {
-			if (sc != null) {
-				sc.close();
-			}
-		}
-	}
+			if (!fileConnection.exists()) {
+				FileManager.removeApp(appName);
 
-	private String readline(InputStream in) throws IOException {
-		int b;
-		int off = 0;
-		int maxlen = 600;
-		StringBuffer line = new StringBuffer();
-		while (off < maxlen) {
-			b = in.read();
-			if ((b == -1) || (b == 0x0a)) {
-				// '\n' or eof
-				break;
+				throw new InstallVerifyErrorException("JarFile not found");
+
 			}
-			line.append((char) (b & 0xff));
+
+			if (length != fileConnection.fileSize()) {
+				FileManager.removeApp(appName);
+
+				throw new InstallVerifyErrorException("file size does not match");
+			}
+			
+			fileConnection = new Protocol();
+			fileConnection.openPrim(securityToken, "//" + Jams.getAppdbRoot() + appName + ".aut", Connector.READ_WRITE, false);
+
+			if (!fileConnection.exists()) {
+				FileManager.removeApp(appName);
+
+				throw new InstallVerifyErrorException("AutFile not found");
+			}
+
+			fileConnection.close();
+			fileConnection = null;
+
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
-		return line.toString();
 	}
 }
