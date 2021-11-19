@@ -147,13 +147,13 @@ esp_err_t ret;
 
     printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
-	heap_caps_print_heap_info(MALLOC_CAP_8BIT);
-	heap_caps_print_heap_info(MALLOC_CAP_EXEC);
-	heap_caps_print_heap_info(MALLOC_CAP_32BIT);
-	heap_caps_print_heap_info(MALLOC_CAP_DEFAULT);
-	heap_caps_print_heap_info(MALLOC_CAP_INTERNAL);
-	heap_caps_print_heap_info(MALLOC_CAP_SPIRAM);
-	heap_caps_print_heap_info(MALLOC_CAP_DMA);	
+	// heap_caps_print_heap_info(MALLOC_CAP_8BIT);
+	// heap_caps_print_heap_info(MALLOC_CAP_EXEC);
+	// heap_caps_print_heap_info(MALLOC_CAP_32BIT);
+	// heap_caps_print_heap_info(MALLOC_CAP_DEFAULT);
+	// heap_caps_print_heap_info(MALLOC_CAP_INTERNAL);
+	// heap_caps_print_heap_info(MALLOC_CAP_SPIRAM);
+	// heap_caps_print_heap_info(MALLOC_CAP_DMA);	
 	
 	if (!exist_spiffs("/appdb/unsecure", "unsecadb", "/appdb/unsecure/properties.ini.jar") &&
 		exist_spiffs("/appdb/unsecure", "unsecadb", "/appdb/unsecure/_factory.ini")) {
