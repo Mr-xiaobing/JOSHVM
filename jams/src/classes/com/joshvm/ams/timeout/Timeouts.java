@@ -17,7 +17,7 @@ public class Timeouts implements Runnable {
 		thread = new Thread(new Timeouts());
 		thread.start();
 
-		System.out.println(timing + "===startTimer=======");
+		System.out.println("<Jams>: startTimer=======");
 	}
 
 	public void setCallback(TimeOutCallback timeOutCallback) {
@@ -28,7 +28,7 @@ public class Timeouts implements Runnable {
 
 		while (flag <= outTime1 && timing) {
 
-			System.out.println(timing + "===running=======" + flag);
+			System.out.println("<Jams>:  running=======" + flag);
 			flag++;
 
 			try {
@@ -39,7 +39,7 @@ public class Timeouts implements Runnable {
 		}
 
 		if (timing) {
-			System.out.println("===OutTime=======");
+			System.out.println("<Jams>:  OutTime=======");
 			timeOutCallback1.timeOut();
 			timing = false;
 		}
@@ -70,7 +70,7 @@ public class Timeouts implements Runnable {
 	 */
 	public void dismiss() {
 		
-		System.out.println("===========dismiss======");
+		System.out.println("<Jams>:  dismiss======");
 		timeOutCallback1 = null;
 		timing = false;
 

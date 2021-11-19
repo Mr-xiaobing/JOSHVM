@@ -26,7 +26,7 @@ public abstract class Installer {
 		InputStream is;
 		OutputStream file_os = null;
 		try {
-			System.out.println("Open file for write:" + installDest);
+			System.out.println("<Jams>: Open file for write:" + installDest);
 			fconn = new Protocol();
 			fconn.openPrim(securityToken, installDest, Connector.READ_WRITE, false);
 			if (fconn.exists()) {
@@ -41,12 +41,12 @@ public abstract class Installer {
 			 * |= (is.read()&0xff)<<8; left |= (is.read()&0xff);
 			 */
 			left = length;
-			System.out.println("Expected download size:" + left);
+			System.out.println("<Jams>: Expected download size:" + left);
 			file_os = fconn.openOutputStream();
 			final int MAX_LENGTH = 512;
 			byte[] buf = new byte[MAX_LENGTH];
 			boolean eof = false;
-			System.out.println("Start reading Jar from website...");
+			System.out.println("<Jams>: Start reading Jar from website...");
 			while (!eof) {
 				int total = 0;
 				int size;
@@ -59,10 +59,10 @@ public abstract class Installer {
 
 					int count = is.read(buf, total, size - total);
 					if (count < 0) {
-						System.out.println("Read EOF!!!");
+						System.out.println("<Jams>: Read EOF!!!");
 						eof = true;
 					} else if (count > 0) {
-						System.out.println("Read bytes number = " + count);
+						System.out.println("<Jams>: Read bytes number = " + count);
 						total += count;
 						left -= count;
 						if (left <= 0) {
@@ -71,7 +71,7 @@ public abstract class Installer {
 					}
 				}
 				file_os.write(buf, 0, total);
-				System.out.println("Total left bytes to write:" + left);
+				System.out.println("<Jams>: Total left bytes to write:" + left);
 			}
 
 			setAutoStart(appName, mainClass, autoStart);

@@ -2,10 +2,12 @@ package com.joshvm.ams.file;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 
 import javax.microedition.io.Connector;
 import javax.microedition.io.file.FileConnection;
 
+import org.joshvm.ams.jams.InstallVerifyErrorException;
 import org.joshvm.ams.jams.Jams;
 import com.sun.cldc.io.j2me.file.Protocol;
 import org.joshvm.security.internal.*;
@@ -21,13 +23,73 @@ public class FileManager {
 	public static String filePath = "/Phone/";
 
 	public static InputStream inputStream = null;
+	public static OutputStream outputStream = null;
 	public static FileConnection fileConnection = null;
+
+	/**
+	 * 保存文件
+	 */
+	public static void saveFile(String fileName, String data) {
+		System.out.println("<Jams>:  Save File...");
+		try {
+			fileConnection = (FileConnection) Connector.open("file://" + filePath + fileName);
+
+			if (fileConnection.exists()) {
+
+				fileConnection.delete();
+
+			}
+
+			// 创建File
+			fileConnection.create();
+
+			// 写入File
+			outputStream = fileConnection.openOutputStream();
+			outputStream.write(data.getBytes());
+
+			outputStream.close();
+			outputStream = null;
+			fileConnection.close();
+			fileConnection = null;
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
+	 * 删除对应文件
+	 * 
+	 * @param fileName
+	 */
+	public static void deleteFile(String fileName) {
+
+		System.out.println("<Jams>:  Delete File...");
+		// 删除文件
+		try {
+			fileConnection = (FileConnection) Connector.open("file://" + filePath + fileName);
+
+			if (fileConnection.exists()) {
+
+				fileConnection.delete();
+
+			}
+
+			fileConnection.close();
+			fileConnection = null;
+
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 
 	/**
 	 * 读取文件
 	 */
 	public static String checkFile(String fileName) {
-		System.out.println("==========Check File...");
+		System.out.println("<Jams>:  Check File...");
 		try {
 			// 读File
 			fileConnection = (FileConnection) Connector.open("file://" + filePath + fileName);
@@ -36,7 +98,7 @@ public class FileManager {
 
 				fileConnection.close();
 
-				System.out.println("==========File No Exist...");
+				System.out.println("<Jams>:  File No Exist...");
 				return "";
 			}
 
@@ -83,7 +145,7 @@ public class FileManager {
 
 				fconn.close();
 
-				System.out.println("==========File No Exist...");
+				System.out.println("<Jams>:  File No Exist...");
 				return "";
 			}
 
@@ -195,7 +257,7 @@ public class FileManager {
 			while (em.hasMoreElements()) {
 				String filename = (String) em.nextElement();
 
-				System.out.println("===========" + filename);
+				System.out.println("<Jams>: getFilesName ====" + filename);
 			}
 
 			fconn.close();
@@ -249,6 +311,53 @@ public class FileManager {
 				}
 			}
 		}
+	}
+
+	/**
+	 * 校验应用
+	 * @param appName
+	 * @param length
+	 * @return
+	 * @throws IOException
+	 * @throws InstallVerifyErrorException
+	 */
+	public static boolean verify(String appName, int length) {
+		String filename = "//" + Jams.getAppdbRoot() + appName;
+		try {
+			// 读File
+			Protocol fileConnection = new Protocol();
+			fileConnection.openPrim(Jams.getSecurityToken(), filename + ".jar", Connector.READ_WRITE,
+					false);
+
+			if (!fileConnection.exists()) {
+				FileManager.removeApp(appName);
+				return false;
+
+			}
+
+			if (length != fileConnection.fileSize()) {
+				FileManager.removeApp(appName);
+
+				return false;
+			}
+
+			fileConnection = new Protocol();
+			fileConnection.openPrim(Jams.getSecurityToken(), filename+ ".aut", Connector.READ_WRITE,
+					false);
+
+			if (!fileConnection.exists()) {
+				FileManager.removeApp(appName);
+				return false;
+			}
+
+			fileConnection.close();
+			fileConnection = null;
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		return true;
 	}
 
 }

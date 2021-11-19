@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Date;
 
 import org.joshvm.ams.jams.Jams;
+import org.joshvm.esp32.blufi.BlufiServer;
 import org.json.me.JSONException;
 import org.json.me.JSONObject;
 
@@ -12,7 +13,6 @@ import com.joshvm.ams.http.HttpAdapter;
 import com.joshvm.ams.http.HttpClient;
 import com.joshvm.ams.http.callback.AppCheckCallback;
 import com.joshvm.ams.util.MD5Utils;
-import com.joshvm.ams.util.Utils;
 
 /**
  * 检查更新适配器
@@ -36,7 +36,7 @@ public class CheckAppListAdapter extends HttpAdapter {
 
 	public HttpClient createHttpClient() {
 
-		System.out.println("=========createHttpClient=========");
+		System.out.println("<Jams>:  createHttpClient=========");
 
 		try {
 			String deviceInfo = FileManager.getFileData(Jams.DEVICE_INFO);
@@ -47,27 +47,30 @@ public class CheckAppListAdapter extends HttpAdapter {
 
 			}
 
-			String[] deviceInfoArray = Utils.slipString(deviceInfo, Jams.BLUFI_CMD_DIVISION, 2);
-
-			if (deviceInfoArray.length < 1) {
-
-				throw new Exception("UNKNOW DEVICE TYPE");
-			}
-
-			String type = deviceInfoArray[0];
-
-			if (type.equals(Jams.TEST)) {
+			if (deviceInfo.equals(Jams.TEST)) {
 				hostUrl = "http://118.190.93.145:9002/vm/ams/vm/app/check";
 				secretKey = "ff552e123wd";
-			} else if (type.equals(Jams.PRODUCT)) {
+			} else if (deviceInfo.equals(Jams.PRODUCT)) {
 				hostUrl = "http://118.190.93.145:9002/vm/ams/vm/app/check";
 				secretKey = "ff552e123wd";
 			}
 
 			String string = FileManager.getFilesMD5();
 
+			StringBuffer bluMac = new StringBuffer();
+			byte[] bt_addr = new byte[6];
+			BlufiServer.getBluetoothAddress(bt_addr);
+			for (int i = 0; i < 6; i++) {
+				bluMac.append(Integer.toString(bt_addr[i] & 0xff, 16));
+				if (i == 5) {
+					bluMac.append("");
+				} else {
+					bluMac.append(":");
+				}
+			}
+
 			JSONObject jsonData = new JSONObject();
-			jsonData.put("imei", Jams.DEVICE_MAC_ADDRESS);
+			jsonData.put("imei", bluMac);
 			jsonData.put("appList", string);
 
 			long timestamp = new Date().getTime();
@@ -94,18 +97,18 @@ public class CheckAppListAdapter extends HttpAdapter {
 
 	public void response(String resp) {
 
-		System.out.println("====response========" + resp);
+		System.out.println("<Jams>:  response========" + resp);
 		appCheckCallback.response(resp);
 	}
 
 	public void failure(int httpCode) {
 
-		System.out.println("=======failure=====" + httpCode);
+		System.out.println("<Jams>:  failure=====" + httpCode);
 		appCheckCallback.failure(httpCode);
 	}
 
 	public void timeout() {
-		System.out.println("=======timeout=====");
+		System.out.println("<Jams>:  timeout=====");
 		appCheckCallback.timeout();
 
 	}

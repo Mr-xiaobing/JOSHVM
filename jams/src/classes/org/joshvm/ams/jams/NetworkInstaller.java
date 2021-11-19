@@ -15,8 +15,8 @@ public class NetworkInstaller extends Installer {
 	private InputStream server_is;
 	private SecurityToken securityToken;
 
-	public NetworkInstaller(SecurityToken securityToken,String installSource) {
-		super(securityToken,installSource);
+	public NetworkInstaller(SecurityToken securityToken, String installSource) {
+		super(securityToken, installSource);
 
 		this.installSource = installSource;
 		this.securityToken = securityToken;
@@ -53,43 +53,9 @@ public class NetworkInstaller extends Installer {
 			}
 		}
 
-		verify(appName, length);
-	}
-
-	private void verify(String appName, int length) throws IOException, InstallVerifyErrorException {
-
-		try {
-			// 读File
-			Protocol fileConnection = new Protocol();
-			fileConnection.openPrim(securityToken, "//" + Jams.getAppdbRoot() + appName + ".jar", Connector.READ_WRITE, false);
-
-			if (!fileConnection.exists()) {
-				FileManager.removeApp(appName);
-
-				throw new InstallVerifyErrorException("JarFile not found");
-
-			}
-
-			if (length != fileConnection.fileSize()) {
-				FileManager.removeApp(appName);
-
-				throw new InstallVerifyErrorException("file size does not match");
-			}
-			
-			fileConnection = new Protocol();
-			fileConnection.openPrim(securityToken, "//" + Jams.getAppdbRoot() + appName + ".aut", Connector.READ_WRITE, false);
-
-			if (!fileConnection.exists()) {
-				FileManager.removeApp(appName);
-
-				throw new InstallVerifyErrorException("AutFile not found");
-			}
-
-			fileConnection.close();
-			fileConnection = null;
-
-		} catch (IOException e) {
-			e.printStackTrace();
+		if (!FileManager.verify(appName, length)) {
+			throw new InstallVerifyErrorException("Install Verify Error ");
 		}
 	}
+
 }

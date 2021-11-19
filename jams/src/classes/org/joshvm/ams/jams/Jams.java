@@ -14,8 +14,7 @@ import com.joshvm.ams.file.FileManager;
 import com.joshvm.ams.http.HttpManager;
 import com.joshvm.ams.http.adapter.CheckAppListAdapter;
 import com.joshvm.ams.http.callback.AppCheckCallback;
-import com.joshvm.ams.network.ConfigerWifiCallBack;
-import com.joshvm.ams.network.NetManager;
+import com.joshvm.ams.util.Utils;
 import com.sun.cldc.io.j2me.file.Protocol;
 import com.sun.cldc.isolate.*;
 import org.joshvm.security.internal.*;
@@ -33,13 +32,14 @@ public class Jams implements AppManagerCommandListener {
 
 	// &&
 	public static final String BLUFI_CMD_DIVISION = "&&";
-	// wifi配置
-	public static final String WIFI_INFO = "wifiInfo.txt";
-	// 环境类型&&蓝牙名1：正式环境 2：测试环境 &&MiaoBSM：血糖仪 MiaoBPM：血压计 例如：1&&MiaoBPM（正式环境血压计）
+	// 检查更新
+	public static final String UPDATE_APP = "updateApp.txt";
+	// 环境类型&&蓝牙名1：正式环境 2：测试环境
 	public static final String DEVICE_INFO = "deviceInfo.txt";
-	// 蓝牙mac地址
-	public static String DEVICE_MAC_ADDRESS = "";
-	
+
+	// 是否请求成功
+	private static boolean isReqSuccess = false;
+
 	/**
 	 * Inner class to request security token from SecurityInitializer.
 	 * SecurityInitializer should be able to check this inner class name.
@@ -49,7 +49,6 @@ public class Jams implements AppManagerCommandListener {
 
 	/** This class has a different security domain than the MIDlet suite */
 	private static SecurityToken securityToken = SecurityInitializer.requestToken(new SecurityTrusted());
-
 
 	public static SecurityToken getSecurityToken() {
 		return securityToken;
@@ -68,18 +67,19 @@ public class Jams implements AppManagerCommandListener {
 
 	private Installer getInstaller(String installSourceURL) {
 		if (installSourceURL.startsWith("file://")) {
-			return new FileInstaller(securityToken,installSourceURL);
+			return new FileInstaller(securityToken, installSourceURL);
 		} else if (installSourceURL.startsWith("comm:")) {
-			return new CommInstaller(securityToken,installSourceURL);
+			return new CommInstaller(securityToken, installSourceURL);
 		} else if (installSourceURL.startsWith("socket://")) {
-			return new NetworkInstaller(securityToken,installSourceURL.substring(9));
+			return new NetworkInstaller(securityToken, installSourceURL.substring(9));
 		} else {
 			return null;
 		}
 	}
-	
+
 	public static void main(String argv[]) {
 
+		System.out.println("<Jams>: Start=============");
 		// Try Comm App Manager
 		Jams ams = new Jams(APPMANAGER_TYPE_COMM);
 		AppManager appman = ams.appman;
@@ -87,7 +87,7 @@ public class Jams implements AppManagerCommandListener {
 		try {
 			appman.connect();
 		} catch (IOException e) {
-			System.out.println("App Manager cannot connect to COMM port");
+			System.out.println("<Jams>: App Manager cannot connect to COMM port");
 		}
 
 		if (!appman.isConnected()) {
@@ -95,12 +95,48 @@ public class Jams implements AppManagerCommandListener {
 			ams = new Jams(APPMANAGER_TYPE_NETWORK);
 			appman = ams.appman;
 
-			NetManager.blufiConfiger(new ConfigerWifiCallBack() {
+			String string = FileManager.checkFile(UPDATE_APP);
 
-				public void success() {
-					new Thread(new Runnable() {
+			if (string.equals("")) {
 
-						public void run() {
+				autoStartAll();
+
+			} else {
+
+				String[] strings = Utils.slipString(string, BLUFI_CMD_DIVISION, 2);
+				if (string != null && strings.length > 4) {
+					String url = strings[0];
+					String appNameCurrent = strings[1];
+					String appNameUpdate = strings[2];
+					String mainClass = strings[3];
+					int size = Integer.parseInt(strings[4]);
+
+					if (FileManager.verify(appNameUpdate, size)) {
+						startApp(null, appNameUpdate, mainClass);
+						FileManager.removeApp(appNameCurrent);
+					} else {
+						autoStartAll();
+						FileManager.removeApp(appNameUpdate);
+
+					}
+
+					FileManager.deleteFile(UPDATE_APP);
+
+				}
+
+			}
+
+			new Thread(new Runnable() {
+
+				public void run() {
+
+					while (!isReqSuccess) {
+
+						// 查询wifi状态
+						String state = System.getProperty("wifi.state");
+
+						if (state.equals("3")) {
+
 							/* 检查应用请求 */
 							HttpManager.executeRequest(new CheckAppListAdapter(new AppCheckCallback() {
 
@@ -112,6 +148,8 @@ public class Jams implements AppManagerCommandListener {
 										int status = jsonObject.getInt("status");
 
 										if (status == 200) {
+
+											isReqSuccess = true;
 
 											JSONObject jsonData = jsonObject.getJSONObject("data");
 											JSONArray installArray = jsonData.getJSONArray("installList");
@@ -132,7 +170,7 @@ public class Jams implements AppManagerCommandListener {
 													String mainClass = jsonObjectInstall.getString("mainName");
 													int size = jsonObjectInstall.getInt("size");
 
-													Installer inst = new NetworkInstaller(securityToken,url);
+													Installer inst = new NetworkInstaller(securityToken, url);
 
 													try {
 														inst.install(md5, mainClass, size, true);
@@ -157,15 +195,20 @@ public class Jams implements AppManagerCommandListener {
 													String appNameUpdate = jsonObjectUpdate.getString("updateMd5");
 													String mainClass = jsonObjectUpdate.getString("mainName");
 													int size = jsonObjectUpdate.getInt("size");
-													Installer inst = new NetworkInstaller(securityToken,url);
+
+													String updateData = url + BLUFI_CMD_DIVISION + appNameCurrent
+															+ BLUFI_CMD_DIVISION + appNameUpdate + BLUFI_CMD_DIVISION
+															+ mainClass + BLUFI_CMD_DIVISION + size;
+
+													FileManager.saveFile(UPDATE_APP, updateData);
+
+													Installer inst = new NetworkInstaller(securityToken, url);
 
 													try {
 														inst.install(appNameUpdate, mainClass, size, true);
 													} catch (Exception e) {
 														e.printStackTrace();
 													}
-
-													FileManager.removeApp(appNameCurrent);
 												}
 											}
 
@@ -186,33 +229,28 @@ public class Jams implements AppManagerCommandListener {
 										e.printStackTrace();
 									}
 
-									autoStartAll();
-
-									FileManager.getFilesName();
 								}
 
 								public void failure(int httpCode) {
-									autoStartAll();
 
 								}
 
 								public void timeout() {
-									autoStartAll();
 
 								}
 							}));
-
 						}
-					}).start();
 
+						try {
+							Thread.sleep(10 * 1000);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+
+					}
 				}
 
-				public void fail(int code) {
-					autoStartAll();
-
-				}
-
-			});
+			}).start();
 
 		}
 
@@ -423,7 +461,6 @@ public class Jams implements AppManagerCommandListener {
 							new String[] { getAppdbNativeRoot() + appName + ".jar" });
 					System.out.println("New Isolate: " + appName + " about to start");
 					iso.start();
-					BlufiServer.close();
 					System.out.println("New Isolate: " + appName + " started, waiting for exit...");
 					try {
 						appman.response(uniqueID, AppManager.APPMAN_RESPCODE_APPSTARTOK);
@@ -465,6 +502,7 @@ public class Jams implements AppManagerCommandListener {
 
 	/**
 	 * 获取运行地址
+	 * 
 	 * @return
 	 */
 	public static String getAppdbNativeRoot() {
@@ -472,8 +510,10 @@ public class Jams implements AppManagerCommandListener {
 		System.out.println("appdb_native_root=" + path);
 		return path;
 	}
+
 	/**
 	 * 获取下载地址
+	 * 
 	 * @return
 	 */
 	public static String getAppdbRoot() {
@@ -492,11 +532,12 @@ public class Jams implements AppManagerCommandListener {
 
 	/**
 	 * 自动运行
+	 * 
 	 * @return
 	 */
 	private static void autoStartAll() {
 		String filepath = "//" + Jams.getAppdbRoot();
-		System.out.println("Try to find auto-start application...");
+		System.out.println("<Jams>: Try to find auto-start application...");
 		try {
 			Protocol fconn = new Protocol();
 			fconn.openPrim(securityToken, filepath, Connector.READ_WRITE, false);
@@ -518,7 +559,7 @@ public class Jams implements AppManagerCommandListener {
 						in.close();
 
 						String mainclass = new String(buf, 0, len);
-						System.out.println("Find auto start application: " + appname);
+						System.out.println("<Jams>: Find auto start application: " + appname);
 						startApp(null, appname, mainclass);
 					}
 					asfile.close();

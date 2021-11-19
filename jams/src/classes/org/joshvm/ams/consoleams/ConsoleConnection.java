@@ -79,7 +79,7 @@ public class ConsoleConnection {
 
 	private byte readByteBlocking() throws IOException {
 		int i;
-		int retry = 10;
+		int retry = 2;
 		while (retry -- > 0 && is.available() == 0) {
 			try {
 				Thread.sleep(100);
